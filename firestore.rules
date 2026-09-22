@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidTouchpoint(data) {
+      return data.keys().hasAll(['user_id', 'channel', 'interaction_sequence', 'converted', 'conversion_value_usd', 'timestamp'])
+        && data.keys().size() == 6
+        && data.user_id is string && data.user_id.size() > 0 && data.user_id.size() <= 128
+        && data.channel is string && data.channel in ['Search', 'YouTube', 'Display', 'Discover', 'Gmail', 'Direct']
+        && data.interaction_sequence is number && data.interaction_sequence >= 1
+        && data.converted is bool
+        && data.conversion_value_usd is number && data.conversion_value_usd >= 0
+        && data.timestamp is string && data.timestamp.size() >= 10 && data.timestamp.size() <= 64;
+    }
+
+    match /p2c_touchpoints/{touchpointId} {
+      allow read: if true;
+      allow create: if isValidTouchpoint(request.resource.data);
+      allow update: if isValidTouchpoint(request.resource.data);
+      allow delete: if true;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "Google Mira",
+  "description": "Path to Conversion Insights: Marketing analytics dashboard for multi-channel attribution, customer journey analysis, and AI-powered conversion insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
