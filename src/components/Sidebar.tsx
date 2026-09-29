@@ -8,6 +8,7 @@ import {
   Sparkles,
   FileText,
   History,
+  Compass,
   Settings,
   HelpCircle,
 } from 'lucide-react';
@@ -15,9 +16,10 @@ import {
 interface SidebarProps {
   activeTab: string;
   onSelectTab: (tab: string) => void;
+  onOpenMarketerGuide?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab, onOpenMarketerGuide }) => {
   const navItems = [
     { id: 'overview', label: 'Overview', icon: LayoutGrid },
     { id: 'journeys', label: 'Customer Journeys', icon: GitFork },
@@ -56,6 +58,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab }) => {
 
       {/* Bottom Controls & Footer */}
       <div className="p-3 border-t border-gray-100 space-y-1">
+        {onOpenMarketerGuide && (
+          <button
+            type="button"
+            onClick={onOpenMarketerGuide}
+            className="w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl text-xs font-bold text-[#1a73e8] bg-[#e8f0fe] hover:bg-[#d2e3fc] transition-colors cursor-pointer text-left shadow-2xs mb-1"
+          >
+            <Compass className="w-4 h-4 shrink-0 text-[#1a73e8]" />
+            <span>Marketer's Guide</span>
+          </button>
+        )}
+
         <button
           type="button"
           onClick={() => onSelectTab('settings')}

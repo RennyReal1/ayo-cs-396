@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Calendar, ChevronDown, Check, Users, ShieldCheck, Flame, Database } from 'lucide-react';
+import { Search, Calendar, ChevronDown, Check, Users, ShieldCheck, Flame, Database, Compass } from 'lucide-react';
 import { WorkspaceUser } from '../types';
 
 interface TopbarProps {
@@ -15,6 +15,7 @@ interface TopbarProps {
   activeProjectId?: string;
   activeDatabaseId?: string;
   onOpenProjectModal?: () => void;
+  onOpenMarketerGuide?: () => void;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
@@ -30,6 +31,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   activeProjectId = 'cs-396-mvp-ayo',
   activeDatabaseId,
   onOpenProjectModal,
+  onOpenMarketerGuide,
 }) => {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -186,6 +188,17 @@ export const Topbar: React.FC<TopbarProps> = ({
               <ShieldCheck className="w-2.5 h-2.5 inline" /> {collaboratorsCount} Linked Accounts
             </span>
           </div>
+        </button>
+
+        {/* Marketer's Guide & Question Finder Button */}
+        <button
+          type="button"
+          onClick={onOpenMarketerGuide}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#e8f0fe] hover:bg-[#d2e3fc] text-[#1a73e8] border border-blue-200/80 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+          title="Marketer's Guide: 1-click answers to common marketing questions & jargon cheat sheet"
+        >
+          <Compass className="w-3.5 h-3.5" />
+          <span className="hidden xl:inline">Marketer's Guide</span>
         </button>
 
         {/* User Avatar / Profile Switcher Trigger */}

@@ -133,67 +133,87 @@ export const CsvUploadModal: React.FC<CsvUploadModalProps> = ({
         const availableHeaders = results.meta.fields || (rawRows[0] ? Object.keys(rawRows[0]) : []);
         const normalizedHeaders = availableHeaders.map((h) => h.trim().toLowerCase());
 
-        // Validate required columns
-        const missing = REQUIRED_COLUMNS.filter(
-          (req) => !normalizedHeaders.includes(req.toLowerCase())
-        );
+        // Smart Fuzzy Column Matching for Marketers (GA4, Shopify, Meta Ads, Google Ads, HubSpot)
+        const findColumn = (aliases: string[]): string | undefined => {
+          return availableHeaders.find((h) => {
+            const clean = h.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+            return aliases.some((a) => clean === a.toLowerCase().replace(/[^a-z0-9]/g, ''));
+          });
+        };
+
+        const userIdCol = findColumn(['user_id', 'userid', 'customer_id', 'client_id', 'clientid', 'user', 'id', 'contact_id']);
+        const channelCol = findColumn(['channel', 'source', 'medium', 'source_medium', 'platform', 'campaign', 'channel_group', 'traffic_source']);
+        const timestampCol = findColumn(['timestamp', 'date', 'time', 'datetime', 'created_at', 'event_timestamp', 'event_time']);
+        const convertedCol = findColumn(['converted', 'conversion', 'is_converted', 'purchased', 'order', 'status', 'event_name']);
+        const revenueCol = findColumn(['conversion_value_usd', 'revenue', 'order_value', 'value', 'sales', 'total', 'amount', 'price', 'purchase_value']);
+        const seqCol = findColumn(['interaction_sequence', 'sequence', 'step', 'order', 'touch_number', 'touchpoint_order']);
+
+        const missing: string[] = [];
+        if (!userIdCol) missing.push('user_id (or Customer ID / Client ID)');
+        if (!channelCol) missing.push('channel (or Source / Medium / Platform)');
+        if (!timestampCol) missing.push('timestamp (or Date / Event Time)');
 
         if (missing.length > 0) {
           setMissingColumns(missing);
-          setParseError(`Missing required columns: ${missing.join(', ')}`);
+          setParseError(`Could not automatically find required columns: ${missing.join(', ')}. Please select a column or download the standard CSV template.`);
           return;
         }
-
-        // Helper to get case-insensitive row values
-        const getRowVal = (row: Record<string, any>, colName: string) => {
-          const matchKey = Object.keys(row).find(
-            (k) => k.trim().toLowerCase() === colName.toLowerCase()
-          );
-          return matchKey !== undefined ? row[matchKey] : undefined;
-        };
 
         const cleaned: Touchpoint[] = [];
         const skipped: SkippedRow[] = [];
 
         rawRows.forEach((row, idx) => {
-          const rowNum = idx + 2; // +1 for 1-based, +1 for header line
-          const rawUserId = getRowVal(row, 'user_id');
-          const rawChannel = getRowVal(row, 'channel');
-          const rawTimestamp = getRowVal(row, 'timestamp');
+          const rowNum = idx + 2;
+          const rawUserId = userIdCol ? row[userIdCol] : undefined;
+          const rawChannel = channelCol ? row[channelCol] : undefined;
+          const rawTimestamp = timestampCol ? row[timestampCol] : undefined;
 
           const userId = rawUserId !== undefined && rawUserId !== null ? String(rawUserId).trim() : '';
-          const channel = rawChannel !== undefined && rawChannel !== null ? String(rawChannel).trim() : '';
+          let channelStr = rawChannel !== undefined && rawChannel !== null ? String(rawChannel).trim() : '';
           const timestamp = rawTimestamp !== undefined && rawTimestamp !== null ? String(rawTimestamp).trim() : '';
 
-          const missingFields: string[] = [];
-          if (!userId) missingFields.push('user_id');
-          if (!channel) missingFields.push('channel');
-          if (!timestamp) missingFields.push('timestamp');
-
-          if (missingFields.length > 0) {
+          if (!userId || !channelStr || !timestamp) {
             skipped.push({
               rowNumber: rowNum,
-              reason: `Missing required: ${missingFields.join(', ')}`,
+              reason: 'Missing user ID, channel, or timestamp',
               preview: JSON.stringify(row).slice(0, 70),
             });
             return;
           }
 
-          // Convert and clean `converted`
-          const rawConverted = String(getRowVal(row, 'converted') ?? '').trim().toLowerCase();
-          const converted = ['true', '1', 'yes', 'y', 't'].includes(rawConverted);
+          // Smart Channel Normalization
+          const chLower = channelStr.toLowerCase();
+          let finalChannel: ChannelName = 'Direct';
+          if (chLower.includes('search') || chLower.includes('google search') || chLower.includes('cpc') || chLower.includes('bing') || chLower.includes('organic')) {
+            finalChannel = 'Search';
+          } else if (chLower.includes('youtube') || chLower.includes('video') || chLower.includes('tiktok') || chLower.includes('reels') || chLower.includes('watch')) {
+            finalChannel = 'YouTube';
+          } else if (chLower.includes('display') || chLower.includes('banner') || chLower.includes('gdn') || chLower.includes('network') || chLower.includes('retargeting')) {
+            finalChannel = 'Display';
+          } else if (chLower.includes('discover') || chLower.includes('feed') || chLower.includes('social') || chLower.includes('instagram') || chLower.includes('facebook') || chLower.includes('ig')) {
+            finalChannel = 'Discover';
+          } else if (chLower.includes('email') || chLower.includes('gmail') || chLower.includes('newsletter') || chLower.includes('promo')) {
+            finalChannel = 'Gmail';
+          } else {
+            finalChannel = 'Direct';
+          }
 
-          // Convert numbers from text
-          const rawSeq = getRowVal(row, 'interaction_sequence');
+          // Clean `converted`
+          const rawConverted = convertedCol ? String(row[convertedCol] ?? '').trim().toLowerCase() : 'false';
+          const converted = ['true', '1', 'yes', 'y', 't', 'purchase', 'conversion', 'order_complete'].includes(rawConverted);
+
+          // Sequence
+          const rawSeq = seqCol ? row[seqCol] : undefined;
           let seqNum = parseInt(String(rawSeq ?? '').replace(/[^0-9]/g, ''), 10);
           if (isNaN(seqNum) || seqNum < 1) {
             seqNum = 1;
           }
 
-          const rawVal = getRowVal(row, 'conversion_value_usd');
+          // Revenue
+          const rawVal = revenueCol ? row[revenueCol] : undefined;
           let valNum = parseFloat(String(rawVal ?? '').replace(/[^0-9.-]/g, ''));
           if (isNaN(valNum) || valNum < 0) {
-            valNum = 0;
+            valNum = converted ? 68.0 : 0; // reasonable default for converted if omitted
           }
 
           // Clean timestamp
@@ -205,7 +225,7 @@ export const CsvUploadModal: React.FC<CsvUploadModalProps> = ({
 
           cleaned.push({
             user_id: userId,
-            channel: channel as ChannelName,
+            channel: finalChannel,
             interaction_sequence: seqNum,
             converted,
             conversion_value_usd: Math.round(valNum * 100) / 100,

@@ -28,6 +28,7 @@ import { RecommendedActionsPanel } from './components/RecommendedActionsPanel';
 import { ChannelIcon } from './components/ChannelIcon';
 import { CsvUploadModal } from './components/CsvUploadModal';
 import { BigQueryConnectorModal } from './components/BigQueryConnectorModal';
+import { MarketerQuickGuideModal } from './components/MarketerQuickGuideModal';
 import { SharedWorkspaceModal } from './components/SharedWorkspaceModal';
 import { FirebaseProjectModal } from './components/FirebaseProjectModal';
 import { Flame } from 'lucide-react';
@@ -117,6 +118,7 @@ export default function App() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
   const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null);
   const [isBigQueryModalOpen, setIsBigQueryModalOpen] = useState<boolean>(false);
+  const [isMarketerGuideOpen, setIsMarketerGuideOpen] = useState<boolean>(false);
 
   // AI Insights state
   const [isGeneratingInsights, setIsGeneratingInsights] = useState<boolean>(false);
@@ -450,11 +452,16 @@ export default function App() {
         activeProjectId={activeProjectProfile.projectId}
         activeDatabaseId={activeProjectProfile.databaseId}
         onOpenProjectModal={() => setIsProjectModalOpen(true)}
+        onOpenMarketerGuide={() => setIsMarketerGuideOpen(true)}
       />
 
       <div className="flex-1 flex w-full">
         {/* Left Sidebar */}
-        <Sidebar activeTab={activeTab} onSelectTab={setActiveTab} />
+        <Sidebar
+          activeTab={activeTab}
+          onSelectTab={setActiveTab}
+          onOpenMarketerGuide={() => setIsMarketerGuideOpen(true)}
+        />
 
         {/* Main Workspace Area */}
         <main className="flex-1 p-6 lg:p-8 max-w-7xl mx-auto w-full overflow-y-auto">
@@ -776,6 +783,14 @@ export default function App() {
         onClose={() => setIsBigQueryModalOpen(false)}
         onImportSuccess={handleUploadSuccess}
         firestoreDatabaseId={activeProjectProfile.databaseId}
+      />
+
+      {/* Marketer Quick Guide & Question Finder Modal */}
+      <MarketerQuickGuideModal
+        isOpen={isMarketerGuideOpen}
+        onClose={() => setIsMarketerGuideOpen(false)}
+        onNavigateToTab={(tab) => setActiveTab(tab)}
+        onOpenUploadModal={() => setIsUploadModalOpen(true)}
       />
 
       {/* Shared Team Workspace Modal */}
