@@ -14,23 +14,31 @@ import {
   GitFork,
   Zap,
   ListFilter,
+  Sparkles,
 } from 'lucide-react';
-import { UserJourney, Touchpoint, ChannelName } from '../../types';
+import { UserJourney, Touchpoint, ChannelName, MotiveType } from '../../types';
 import { ChannelIcon } from '../ChannelIcon';
-import { extractUserJourneys, CHANNELS, CHANNEL_COLORS } from '../../utils/dataEngine';
+import {
+  extractUserJourneys,
+  CHANNELS,
+  CHANNEL_COLORS,
+  classifyJourneyMotive,
+} from '../../utils/dataEngine';
 import { SequenceExplorer } from '../SequenceExplorer';
 import { ConversionLagCard } from '../ConversionLagCard';
+import { MotiveAnalysisCard } from '../MotiveAnalysisCard';
 
 interface CustomerJourneysPageProps {
   touchpoints: Touchpoint[];
 }
 
 export const CustomerJourneysPage: React.FC<CustomerJourneysPageProps> = ({ touchpoints }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'sequence' | 'lag' | 'table'>('sequence');
+  const [activeSubTab, setActiveSubTab] = useState<'sequence' | 'motives' | 'lag' | 'table'>('sequence');
   const [search, setSearch] = useState('');
   const [conversionFilter, setConversionFilter] = useState<'all' | 'converted' | 'non-converted'>('all');
   const [selectedChannel, setSelectedChannel] = useState<ChannelName | 'all'>('all');
   const [selectedLagBucket, setSelectedLagBucket] = useState<string | null>(null);
+  const [selectedMotive, setSelectedMotive] = useState<MotiveType | 'all'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 15;
 
@@ -68,6 +76,12 @@ export const CustomerJourneysPage: React.FC<CustomerJourneysPageProps> = ({ touc
         return false;
       }
 
+      // Motive filter
+      if (selectedMotive !== 'all') {
+        const m = classifyJourneyMotive(j);
+        if (m !== selectedMotive) return false;
+      }
+
       // Latency bucket filter
       if (selectedLagBucket) {
         if (!j.converted) return false;
@@ -90,7 +104,7 @@ export const CustomerJourneysPage: React.FC<CustomerJourneysPageProps> = ({ touc
       }
       return true;
     });
-  }, [journeys, search, conversionFilter, selectedChannel, selectedLagBucket]);
+  }, [journeys, search, conversionFilter, selectedChannel, selectedLagBucket, selectedMotive]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredJourneys.length / pageSize));
@@ -116,6 +130,15 @@ export const CustomerJourneysPage: React.FC<CustomerJourneysPageProps> = ({ touc
     }
   };
 
+  // Handle clicking a motive card in MotiveAnalysisCard
+  const handleMotiveFilter = (motive: MotiveType | 'all') => {
+    setSelectedMotive(motive);
+    if (motive !== 'all') {
+      setActiveSubTab('table');
+      setCurrentPage(1);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -130,42 +153,55 @@ export const CustomerJourneysPage: React.FC<CustomerJourneysPageProps> = ({ touc
             </span>
           </div>
           <p className="text-xs text-gray-500 mt-1">
-            Analyze multi-touch progression patterns, conditional branching, time-to-convert velocity, and individual touchpoint sequences.
+            Analyze multi-touch progression patterns, purchase motives (Birthday, Coachella festival, impulse), conversion velocity, and individual records.
           </p>
         </div>
 
         {/* View Switcher Pills */}
-        <div className="flex items-center bg-[#f1f3f4] p-1 rounded-xl text-xs font-semibold">
+        <div className="flex items-center bg-[#f1f3f4] p-1 rounded-xl text-xs font-semibold flex-wrap gap-1">
           <button
             type="button"
             onClick={() => setActiveSubTab('sequence')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
               activeSubTab === 'sequence'
                 ? 'bg-white text-[#1a73e8] shadow-xs'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
             <GitFork className="w-3.5 h-3.5" />
-            <span>If Channel A → Then Channel B</span>
+            <span>If Channel A → Then B</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('motives')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+              activeSubTab === 'motives'
+                ? 'bg-white text-[#9334e8] shadow-xs'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Purchase Motives (Birthday, Coachella)</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveSubTab('lag')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
               activeSubTab === 'lag'
                 ? 'bg-white text-[#b06000] shadow-xs'
                 : 'text-gray-600 hover:text-gray-900'
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
-            <span>Time to Convert (Latency)</span>
+            <span>Time to Convert</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveSubTab('table')}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
               activeSubTab === 'table'
                 ? 'bg-white text-gray-900 shadow-xs'
                 : 'text-gray-600 hover:text-gray-900'
@@ -244,7 +280,16 @@ export const CustomerJourneysPage: React.FC<CustomerJourneysPageProps> = ({ touc
         />
       )}
 
-      {/* Sub-tab 2: Time to Convert (Conversion Lag & Latency) */}
+      {/* Sub-tab 2: Purchase Motives & Basket Value */}
+      {activeSubTab === 'motives' && (
+        <MotiveAnalysisCard
+          journeys={journeys}
+          selectedMotive={selectedMotive}
+          onSelectMotive={handleMotiveFilter}
+        />
+      )}
+
+      {/* Sub-tab 3: Time to Convert (Conversion Lag & Latency) */}
       {activeSubTab === 'lag' && (
         <ConversionLagCard
           journeys={journeys}
@@ -253,18 +298,21 @@ export const CustomerJourneysPage: React.FC<CustomerJourneysPageProps> = ({ touc
         />
       )}
 
-      {/* Sub-tab 3: Journey Records Table */}
+      {/* Sub-tab 4: Journey Records Table */}
       {activeSubTab === 'table' && (
         <div className="bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
-          {/* Active Filter Pill Alert if filtered from Latency or Channel */}
-          {(selectedLagBucket || selectedChannel !== 'all') && (
+          {/* Active Filter Pill Alert */}
+          {(selectedLagBucket || selectedChannel !== 'all' || selectedMotive !== 'all') && (
             <div className="px-4 py-2.5 bg-blue-50/70 border-b border-blue-100 flex items-center justify-between text-xs text-blue-900">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Filter className="w-3.5 h-3.5 text-[#1a73e8]" />
                 <span>
                   Filtering active:{' '}
                   {selectedChannel !== 'all' && (
                     <strong className="mr-2">Channel: {selectedChannel}</strong>
+                  )}
+                  {selectedMotive !== 'all' && (
+                    <strong className="mr-2">Motive: {selectedMotive}</strong>
                   )}
                   {selectedLagBucket && (
                     <strong>
@@ -287,6 +335,7 @@ export const CustomerJourneysPage: React.FC<CustomerJourneysPageProps> = ({ touc
                 onClick={() => {
                   setSelectedChannel('all');
                   setSelectedLagBucket(null);
+                  setSelectedMotive('all');
                 }}
                 className="font-semibold text-[#1a73e8] hover:underline cursor-pointer"
               >
@@ -298,7 +347,7 @@ export const CustomerJourneysPage: React.FC<CustomerJourneysPageProps> = ({ touc
           {/* Table Toolbar */}
           <div className="p-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-3 flex-1">
-              <div className="relative min-w-[220px] max-w-sm flex-1">
+              <div className="relative min-w-[200px] max-w-sm flex-1">
                 <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
@@ -327,6 +376,23 @@ export const CustomerJourneysPage: React.FC<CustomerJourneysPageProps> = ({ touc
                     {ch}
                   </option>
                 ))}
+              </select>
+
+              {/* Motive filter dropdown */}
+              <select
+                value={selectedMotive}
+                onChange={(e) => {
+                  setSelectedMotive(e.target.value as MotiveType | 'all');
+                  setCurrentPage(1);
+                }}
+                className="bg-[#f8fafd] text-xs font-medium text-gray-700 rounded-xl px-3 py-2 border border-gray-200 focus:outline-none cursor-pointer"
+              >
+                <option value="all">All Motives</option>
+                <option value="Birthday & Milestone Gift">🎂 Birthday & Gift</option>
+                <option value="Festival & Event Prep">🎟️ Festival / Coachella Prep</option>
+                <option value="Impulse Flash Sale">⚡ Impulse Flash Sale</option>
+                <option value="High-Ticket Deliberation">🔬 High-Ticket Deliberation</option>
+                <option value="Routine Replenishment">🔄 Routine Replenishment</option>
               </select>
             </div>
 
@@ -384,8 +450,9 @@ export const CustomerJourneysPage: React.FC<CustomerJourneysPageProps> = ({ touc
               <thead>
                 <tr className="border-b border-gray-200 bg-[#f8fafd] text-gray-600 font-semibold">
                   <th className="py-3 px-4">User ID</th>
+                  <th className="py-3 px-4">Purchase Motive</th>
                   <th className="py-3 px-4">Channel Path Sequence</th>
-                  <th className="py-3 px-4 text-center">Touchpoints</th>
+                  <th className="py-3 px-4 text-center">Touches</th>
                   <th className="py-3 px-4">Time to Convert</th>
                   <th className="py-3 px-4 text-center">Converted</th>
                   <th className="py-3 px-4 text-right">Revenue</th>
@@ -394,78 +461,92 @@ export const CustomerJourneysPage: React.FC<CustomerJourneysPageProps> = ({ touc
               <tbody className="divide-y divide-gray-100">
                 {paginatedJourneys.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-gray-400">
+                    <td colSpan={7} className="py-12 text-center text-gray-400">
                       No customer journeys match your criteria.
                     </td>
                   </tr>
                 ) : (
-                  paginatedJourneys.map((j) => (
-                    <tr key={j.user_id} className="hover:bg-blue-50/30 transition-colors">
-                      <td className="py-3 px-4 font-mono font-medium text-gray-800">
-                        {j.user_id}
-                      </td>
+                  paginatedJourneys.map((j) => {
+                    const motive = classifyJourneyMotive(j);
 
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {j.path.map((ch, idx) => (
-                            <React.Fragment key={idx}>
-                              {idx > 0 && <span className="text-gray-300 text-[10px]">→</span>}
-                              <span
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border"
-                                style={{
-                                  borderColor: `${CHANNEL_COLORS[ch]}30`,
-                                  backgroundColor: `${CHANNEL_COLORS[ch]}10`,
-                                  color: CHANNEL_COLORS[ch],
-                                }}
-                              >
-                                <ChannelIcon channel={ch} size={14} />
-                                {ch}
-                              </span>
-                            </React.Fragment>
-                          ))}
-                        </div>
-                      </td>
+                    return (
+                      <tr key={j.user_id} className="hover:bg-blue-50/30 transition-colors">
+                        <td className="py-3 px-4 font-mono font-medium text-gray-800">
+                          {j.user_id}
+                        </td>
 
-                      <td className="py-3 px-4 text-center">
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-700 font-medium text-[11px]">
-                          {j.journey_length}
-                        </span>
-                      </td>
-
-                      <td className="py-3 px-4 text-gray-600 whitespace-nowrap">
-                        {j.converted ? (
-                          <span className="inline-flex items-center gap-1 font-medium text-gray-800">
-                            <Clock className="w-3.5 h-3.5 text-gray-400" />
-                            {getDaysToConvert(j)}
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#f1f3f4] text-gray-700">
+                            {motive === 'Birthday & Milestone Gift' && '🎂 Birthday'}
+                            {motive === 'Festival & Event Prep' && '🎟️ Festival'}
+                            {motive === 'Impulse Flash Sale' && '⚡ Impulse'}
+                            {motive === 'High-Ticket Deliberation' && '🔬 High-Ticket'}
+                            {motive === 'Routine Replenishment' && '🔄 Loyal Repeat'}
                           </span>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </td>
+                        </td>
 
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
-                        {j.converted ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#e6f4ea] text-[#137333]">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Yes
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500">
-                            <XCircle className="w-3.5 h-3.5 text-gray-400" />
-                            No
-                          </span>
-                        )}
-                      </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {j.path.map((ch, idx) => (
+                              <React.Fragment key={idx}>
+                                {idx > 0 && <span className="text-gray-300 text-[10px]">→</span>}
+                                <span
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border"
+                                  style={{
+                                    borderColor: `${CHANNEL_COLORS[ch]}30`,
+                                    backgroundColor: `${CHANNEL_COLORS[ch]}10`,
+                                    color: CHANNEL_COLORS[ch],
+                                  }}
+                                >
+                                  <ChannelIcon channel={ch} size={14} />
+                                  {ch}
+                                </span>
+                              </React.Fragment>
+                            ))}
+                          </div>
+                        </td>
 
-                      <td className="py-3 px-4 text-right font-bold text-gray-900 whitespace-nowrap">
-                        {j.converted && j.total_value > 0 ? (
-                          <span className="text-gray-900">${j.total_value.toFixed(0)}</span>
-                        ) : (
-                          <span className="text-gray-400 font-normal">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
+                        <td className="py-3 px-4 text-center">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 text-gray-700 font-medium text-[11px]">
+                            {j.journey_length}
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-4 text-gray-600 whitespace-nowrap">
+                          {j.converted ? (
+                            <span className="inline-flex items-center gap-1 font-medium text-gray-800">
+                              <Clock className="w-3.5 h-3.5 text-gray-400" />
+                              {getDaysToConvert(j)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+
+                        <td className="py-3 px-4 text-center whitespace-nowrap">
+                          {j.converted ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#e6f4ea] text-[#137333]">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Yes
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500">
+                              <XCircle className="w-3.5 h-3.5 text-gray-400" />
+                              No
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="py-3 px-4 text-right font-bold text-gray-900 whitespace-nowrap">
+                          {j.converted && j.total_value > 0 ? (
+                            <span className="text-gray-900">${j.total_value.toFixed(0)}</span>
+                          ) : (
+                            <span className="text-gray-400 font-normal">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

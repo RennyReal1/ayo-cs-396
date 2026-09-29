@@ -257,3 +257,36 @@ export interface CampaignPlacementStrategy {
   adSchedulingTakeaway: string;
 }
 
+export interface MarketingSnapshot {
+  id?: string;
+  name: string;
+  periodLabel: string;
+  totalUsers: number;
+  totalConversions: number;
+  conversionRate: number; // percentage
+  totalRevenue: number;
+  avgJourneyLength: number;
+  topChannel: string;
+  createdAt: string; // ISO format
+}
+
+export type MotiveType =
+  | 'Birthday & Milestone Gift'
+  | 'Festival & Event Prep'
+  | 'Impulse Flash Sale'
+  | 'High-Ticket Deliberation'
+  | 'Routine Replenishment';
+
+export interface JourneyMotiveClassification {
+  motive: MotiveType;
+  badgeColor: string;
+  badgeBg: string;
+  description: string;
+  confidence: number;
+  revenue: number;
+  conversions: number;
+  totalUsers: number;
+  avgOrderValue: number;
+  topChannels: ChannelName[];
+}
+

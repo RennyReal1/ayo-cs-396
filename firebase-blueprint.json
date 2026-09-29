@@ -1,5 +1,50 @@
 {
   "entities": {
+    "Snapshot": {
+      "title": "Marketing Period Snapshot",
+      "description": "Historical benchmark snapshot for period-over-period comparison (e.g. Q4 vs Q3, Monthly)",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the snapshot e.g. Q4 Holiday Blitz 2025"
+        },
+        "periodLabel": {
+          "type": "string",
+          "description": "Date range label e.g. Oct 1 – Dec 31, 2025"
+        },
+        "totalUsers": {
+          "type": "number",
+          "description": "Total users in snapshot"
+        },
+        "totalConversions": {
+          "type": "number",
+          "description": "Total conversions"
+        },
+        "conversionRate": {
+          "type": "number",
+          "description": "Conversion rate percentage"
+        },
+        "totalRevenue": {
+          "type": "number",
+          "description": "Total revenue in USD"
+        },
+        "avgJourneyLength": {
+          "type": "number",
+          "description": "Average touchpoints per user"
+        },
+        "topChannel": {
+          "type": "string",
+          "description": "Top performing channel"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        }
+      },
+      "required": ["name", "periodLabel", "totalUsers", "totalConversions", "conversionRate", "totalRevenue", "avgJourneyLength", "topChannel", "createdAt"]
+    },
     "Touchpoint": {
       "title": "Customer Journey Touchpoint",
       "description": "An interaction touchpoint in a marketing path to conversion",
@@ -36,6 +81,10 @@
     }
   },
   "firestore": {
+    "/p2c_snapshots/{snapshotId}": {
+      "schema": "Snapshot",
+      "description": "Snapshots collection storing period-over-period marketing benchmarks"
+    },
     "/p2c_touchpoints/{touchpointId}": {
       "schema": "Touchpoint",
       "description": "Touchpoints collection storing multi-channel journey events"

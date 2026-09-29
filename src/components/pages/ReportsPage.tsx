@@ -1,10 +1,28 @@
 import React, { useState } from 'react';
-import { Download, FileText, Calendar, CheckCircle2, DollarSign, Users, BarChart2, Layers, FileSpreadsheet, Presentation, Loader2 } from 'lucide-react';
+import {
+  Download,
+  FileText,
+  Calendar,
+  CheckCircle2,
+  DollarSign,
+  Users,
+  BarChart2,
+  Layers,
+  FileSpreadsheet,
+  Presentation,
+  Loader2,
+  History,
+} from 'lucide-react';
 import { DashboardMetrics, Touchpoint, AIInsight, RecommendedAction } from '../../types';
 import { ChannelIcon } from '../ChannelIcon';
 import { downloadCsvTemplate } from '../../utils/dataEngine';
-import { exportInsightsToSlides, GeneratedSlidePackage, openPresentationInNewTab } from '../../utils/slideExport';
+import {
+  exportInsightsToSlides,
+  GeneratedSlidePackage,
+  openPresentationInNewTab,
+} from '../../utils/slideExport';
 import { SlideDestinationModal } from '../SlideDestinationModal';
+import { PeriodComparisonCard } from '../PeriodComparisonCard';
 
 interface ReportsPageProps {
   metrics: DashboardMetrics;
@@ -23,6 +41,7 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
   onExportCsv,
   onShowToast,
 }) => {
+  const [activeTab, setActiveTab] = useState<'comparison' | 'export'>('comparison');
   const [isExportingSlides, setIsExportingSlides] = useState(false);
   const [destinationPackage, setDestinationPackage] = useState<GeneratedSlidePackage | null>(null);
 
@@ -52,7 +71,10 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `P2C_Executive_Summary_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute(
+      'download',
+      `P2C_Executive_Summary_${new Date().toISOString().slice(0, 10)}.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -84,166 +106,175 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header with Download Actions */}
+      {/* Header with Sub-Tabs */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Executive Reports</h1>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+            Reports & Historical Comparisons
+          </h1>
           <p className="text-xs text-gray-500 mt-1">
-            Standardized marketing performance summary for reporting period ({metrics.dateRangeLabel})
+            Compare period benchmarks (e.g. Q4 vs. Q3 or monthly snapshots) and export certified attribution reports
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Generate Slides Button */}
+        {/* View Switcher Pills */}
+        <div className="flex items-center bg-[#f1f3f4] p-1 rounded-xl text-xs font-semibold">
           <button
             type="button"
-            onClick={handleExportSlideDeck}
-            disabled={isExportingSlides}
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-xl text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer disabled:opacity-50"
-            title="Download executive presentation slide deck with insights and metrics"
+            onClick={() => setActiveTab('comparison')}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all cursor-pointer ${
+              activeTab === 'comparison'
+                ? 'bg-white text-[#007b83] shadow-xs'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
           >
-            {isExportingSlides ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin text-[#1a73e8]" />
-                <span>Building Slides...</span>
-              </>
-            ) : (
-              <>
-                <Presentation className="w-4 h-4 text-[#1a73e8]" />
-                <span>Export Presentation (.pptx)</span>
-              </>
-            )}
+            <History className="w-3.5 h-3.5" />
+            <span>Period-over-Period (Q4 vs. Q3)</span>
           </button>
 
           <button
             type="button"
-            onClick={downloadCsvTemplate}
-            className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-xl text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
-            title="Download blank CSV template with example data"
+            onClick={() => setActiveTab('export')}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg transition-all cursor-pointer ${
+              activeTab === 'export'
+                ? 'bg-white text-[#1a73e8] shadow-xs'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
           >
-            <FileSpreadsheet className="w-4 h-4 text-[#1a73e8]" />
-            <span>Download CSV Template</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onExportCsv}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#1a73e8] hover:bg-[#1557b0] text-white rounded-xl text-xs font-semibold shadow-xs hover:shadow-md transition-all cursor-pointer"
-          >
-            <Download className="w-4 h-4" />
-            <span>Download Touchpoints CSV</span>
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>Executive Exports & Templates</span>
           </button>
         </div>
       </div>
 
-      {/* Key Numbers Summary Cards */}
-      <div className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-xs space-y-6">
-        <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-[#e8f0fe] text-[#1a73e8] flex items-center justify-center">
-              <FileText className="w-4 h-4" />
+      {/* Tab 1: Period-over-Period Comparison */}
+      {activeTab === 'comparison' && (
+        <PeriodComparisonCard currentMetrics={metrics} onShowToast={onShowToast} />
+      )}
+
+      {/* Tab 2: Standard Executive Exports */}
+      {activeTab === 'export' && (
+        <div className="space-y-6">
+          {/* Export Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* 1. Full Dataset CSV */}
+            <div className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-xs flex flex-col justify-between hover:border-[#1a73e8]/30 transition-all">
+              <div className="space-y-3">
+                <div className="w-10 h-10 rounded-xl bg-[#e8f0fe] text-[#1a73e8] flex items-center justify-center">
+                  <Download className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">
+                    Full Touchpoint Raw Data (.csv)
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Export all {touchpoints.length.toLocaleString()} raw interaction events, sequence numbers, timestamps, and conversion values.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onExportCsv}
+                className="mt-6 w-full py-2.5 px-4 bg-[#1a73e8] hover:bg-[#1557b0] text-white rounded-xl text-xs font-semibold shadow-2xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Download className="w-4 h-4" />
+                Download Raw CSV
+              </button>
             </div>
-            <div>
-              <h2 className="text-base font-semibold text-gray-900">Executive Performance Snapshot</h2>
-              <p className="text-xs text-gray-500">Key business outcomes across full-funnel customer journeys</p>
+
+            {/* 2. Executive Summary CSV */}
+            <div className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-xs flex flex-col justify-between hover:border-[#137333]/30 transition-all">
+              <div className="space-y-3">
+                <div className="w-10 h-10 rounded-xl bg-[#e6f4ea] text-[#137333] flex items-center justify-center">
+                  <FileSpreadsheet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">Executive Summary (.csv)</h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Export high-level metrics, total conversions, conversion rate, revenue, and channel contribution shares for leadership review.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleExportSummaryCsv}
+                className="mt-6 w-full py-2.5 px-4 bg-white hover:bg-gray-50 text-gray-800 border border-gray-200 rounded-xl text-xs font-semibold shadow-2xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Download className="w-4 h-4 text-gray-500" />
+                Download Summary
+              </button>
+            </div>
+
+            {/* 3. Starter CSV Template */}
+            <div className="bg-white rounded-2xl p-6 border border-gray-200/80 shadow-xs flex flex-col justify-between hover:border-[#b06000]/30 transition-all">
+              <div className="space-y-3">
+                <div className="w-10 h-10 rounded-xl bg-[#fef7e0] text-[#b06000] flex items-center justify-center">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">Starter CSV Template</h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Download an empty template with exact columns (user_id, channel, sequence, converted, value, timestamp) to upload custom data.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={downloadCsvTemplate}
+                className="mt-6 w-full py-2.5 px-4 bg-white hover:bg-gray-50 text-gray-800 border border-gray-200 rounded-xl text-xs font-semibold shadow-2xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Download className="w-4 h-4 text-gray-500" />
+                Download Template
+              </button>
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={handleExportSummaryCsv}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#f8fafd] hover:bg-[#e8f0fe] border border-gray-200/80 text-gray-700 hover:text-[#1a73e8] rounded-lg text-xs font-medium transition-colors cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export Summary Table</span>
-          </button>
-        </div>
+          {/* Presentation Deck Banner */}
+          <div className="bg-gradient-to-r from-blue-50/60 to-indigo-50/40 rounded-2xl border border-blue-100 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-white text-[#1a73e8] shadow-xs flex items-center justify-center shrink-0">
+                <Presentation className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-900">
+                  Google Slides Executive Presentation Deck
+                </h3>
+                <p className="text-xs text-gray-600 mt-0.5 max-w-xl">
+                  Automatically synthesize all findings, attribution models, channel contributions, and Gemini insights into a multi-slide presentation deck.
+                </p>
+              </div>
+            </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          <div className="p-4 rounded-xl bg-[#f8fafd] border border-gray-100 space-y-1">
-            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider block">Total Users</span>
-            <div className="text-lg font-bold text-gray-900">{metrics.totalUsers.toLocaleString()}</div>
-            <span className="text-[10px] text-gray-500">Unique visitors</span>
-          </div>
-
-          <div className="p-4 rounded-xl bg-[#f8fafd] border border-gray-100 space-y-1">
-            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider block">Conversions</span>
-            <div className="text-lg font-bold text-gray-900">{metrics.totalConversions.toLocaleString()}</div>
-            <span className="text-[10px] text-[#137333] font-semibold">{metrics.conversionRate.toFixed(1)}% conv rate</span>
-          </div>
-
-          <div className="p-4 rounded-xl bg-[#f8fafd] border border-gray-100 space-y-1">
-            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider block">Tracked Revenue</span>
-            <div className="text-lg font-bold text-gray-900">${metrics.totalRevenue.toLocaleString()}</div>
-            <span className="text-[10px] text-gray-500">From journey paths</span>
-          </div>
-
-          <div className="p-4 rounded-xl bg-[#f8fafd] border border-gray-100 space-y-1">
-            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider block">Avg Journey Lag</span>
-            <div className="text-lg font-bold text-gray-900">{metrics.avgJourneyLength.toFixed(1)}</div>
-            <span className="text-[10px] text-gray-500">Touchpoints per buyer</span>
-          </div>
-
-          <div className="p-4 rounded-xl bg-[#f8fafd] border border-gray-100 space-y-1">
-            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider block">Primary Channel</span>
-            <div className="text-lg font-bold text-gray-900 truncate">{metrics.topChannel}</div>
-            <span className="text-[10px] text-gray-500">{metrics.topChannelShare.toFixed(1)}% of volume</span>
-          </div>
-
-          <div className="p-4 rounded-xl bg-[#f8fafd] border border-gray-100 space-y-1">
-            <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wider block">Dataset Scale</span>
-            <div className="text-lg font-bold text-gray-900">{touchpoints.length.toLocaleString()}</div>
-            <span className="text-[10px] text-gray-500">Raw log rows</span>
+            <button
+              type="button"
+              onClick={handleExportSlideDeck}
+              disabled={isExportingSlides}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1a73e8] hover:bg-[#1557b0] text-white rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer shrink-0 disabled:opacity-50"
+            >
+              {isExportingSlides ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Synthesizing Slides...</span>
+                </>
+              ) : (
+                <>
+                  <Presentation className="w-4 h-4" />
+                  <span>Generate Slides Deck</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
+      )}
 
-        {/* Channel Breakdown Breakdown */}
-        <div className="pt-4 border-t border-gray-100 space-y-3">
-          <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Channel Volume Contribution</h3>
-          <div className="overflow-x-auto border border-gray-100 rounded-xl">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-gray-200 bg-[#f8fafd] text-gray-600 font-semibold">
-                  <th className="py-2.5 px-3">Channel</th>
-                  <th className="py-2.5 px-3">Conversions</th>
-                  <th className="py-2.5 px-3">Share of Total</th>
-                  <th className="py-2.5 px-3">Visual Proportion</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {metrics.channelContributions.map((c) => (
-                  <tr key={c.channel} className="hover:bg-gray-50/80">
-                    <td className="py-2.5 px-3">
-                      <div className="flex items-center gap-2">
-                        <ChannelIcon channel={c.channel} size={18} />
-                        <span className="font-semibold text-gray-900">{c.channel}</span>
-                      </div>
-                    </td>
-                    <td className="py-2.5 px-3 font-semibold text-gray-900">{c.conversions}</td>
-                    <td className="py-2.5 px-3 font-medium text-gray-700">{c.percentage}%</td>
-                    <td className="py-2.5 px-3 w-1/3">
-                      <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                        <div
-                          className="h-1.5 rounded-full"
-                          style={{ width: `${c.percentage}%`, backgroundColor: c.color }}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* Destination Modal (Download on Computer or Save to Cloud) */}
-      <SlideDestinationModal
-        isOpen={Boolean(destinationPackage)}
-        onClose={() => setDestinationPackage(null)}
-        slidePackage={destinationPackage}
-        onShowToast={onShowToast}
-      />
+      {/* Slide Destination Modal */}
+      {destinationPackage && (
+        <SlideDestinationModal
+          pkg={destinationPackage}
+          onClose={() => setDestinationPackage(null)}
+          onShowToast={onShowToast}
+        />
+      )}
     </div>
   );
 };

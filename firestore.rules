@@ -13,6 +13,26 @@ service cloud.firestore {
         && data.timestamp is string && data.timestamp.size() >= 10 && data.timestamp.size() <= 64;
     }
 
+    function isValidSnapshot(data) {
+      return data.keys().hasAll(['name', 'periodLabel', 'totalUsers', 'totalConversions', 'conversionRate', 'totalRevenue', 'avgJourneyLength', 'topChannel', 'createdAt'])
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 128
+        && data.periodLabel is string
+        && data.totalUsers is number && data.totalUsers >= 0
+        && data.totalConversions is number && data.totalConversions >= 0
+        && data.conversionRate is number && data.conversionRate >= 0
+        && data.totalRevenue is number && data.totalRevenue >= 0
+        && data.avgJourneyLength is number && data.avgJourneyLength >= 0
+        && data.topChannel is string
+        && data.createdAt is string;
+    }
+
+    match /p2c_snapshots/{snapshotId} {
+      allow read: if true;
+      allow create: if isValidSnapshot(request.resource.data);
+      allow update: if isValidSnapshot(request.resource.data);
+      allow delete: if true;
+    }
+
     match /p2c_touchpoints/{touchpointId} {
       allow read: if true;
       allow create: if isValidTouchpoint(request.resource.data);
