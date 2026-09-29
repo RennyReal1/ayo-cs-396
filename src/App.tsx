@@ -27,6 +27,7 @@ import { AIInsightsPanel } from './components/AIInsightsPanel';
 import { RecommendedActionsPanel } from './components/RecommendedActionsPanel';
 import { ChannelIcon } from './components/ChannelIcon';
 import { CsvUploadModal } from './components/CsvUploadModal';
+import { BigQueryConnectorModal } from './components/BigQueryConnectorModal';
 import { SharedWorkspaceModal } from './components/SharedWorkspaceModal';
 import { FirebaseProjectModal } from './components/FirebaseProjectModal';
 import { Flame } from 'lucide-react';
@@ -115,6 +116,7 @@ export default function App() {
   // CSV Upload modal state
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
   const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null);
+  const [isBigQueryModalOpen, setIsBigQueryModalOpen] = useState<boolean>(false);
 
   // AI Insights state
   const [isGeneratingInsights, setIsGeneratingInsights] = useState<boolean>(false);
@@ -588,6 +590,17 @@ export default function App() {
                     />
                   </label>
 
+                  {/* BigQuery & Google Cloud Connector Button */}
+                  <button
+                    type="button"
+                    onClick={() => setIsBigQueryModalOpen(true)}
+                    className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#f8fafd] hover:bg-[#e8f0fe] border border-blue-200 text-[#1a73e8] rounded-xl text-xs font-bold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
+                    title="Connect directly to Google BigQuery, Cloud Storage (GCS), or Firestore stream"
+                  >
+                    <Database className="w-3.5 h-3.5" />
+                    <span>BigQuery & Cloud</span>
+                  </button>
+
                   {/* Download CSV Template Link (Requirement 8) */}
                   <button
                     type="button"
@@ -755,6 +768,14 @@ export default function App() {
           setSelectedUploadFile(null);
         }}
         onUploadSuccess={handleUploadSuccess}
+      />
+
+      {/* BigQuery & Google Cloud Connector Modal */}
+      <BigQueryConnectorModal
+        isOpen={isBigQueryModalOpen}
+        onClose={() => setIsBigQueryModalOpen(false)}
+        onImportSuccess={handleUploadSuccess}
+        firestoreDatabaseId={activeProjectProfile.databaseId}
       />
 
       {/* Shared Team Workspace Modal */}
