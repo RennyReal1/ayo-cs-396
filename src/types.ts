@@ -155,3 +155,58 @@ export interface WorkspaceUser {
   institution?: string;
 }
 
+export interface NextTransitionOption {
+  target: ChannelName | 'Converted' | 'Dropped Off';
+  count: number;
+  percentage: number; // 0 to 100
+  color: string;
+}
+
+export interface SequenceAnalysisResult {
+  steps: (ChannelName | 'Any')[];
+  matchingJourneysCount: number;
+  totalJourneysCount: number;
+  shareOfTraffic: number; // percentage
+  conversionsCount: number;
+  conversionRate: number; // percentage
+  baselineConversionRate: number; // percentage
+  liftVsBaseline: number; // percentage difference
+  totalRevenue: number;
+  avgOrderValue: number;
+  avgDaysToConvert: number;
+  nextStepTransitions: NextTransitionOption[];
+  matchingJourneys: UserJourney[];
+}
+
+export interface ConversionLagBucket {
+  id: string;
+  label: string;
+  minDays: number;
+  maxDays: number;
+  conversions: number;
+  percentage: number;
+  revenue: number;
+  avgOrderValue: number;
+  description: string;
+  color: string;
+}
+
+export interface ChannelLagSpeed {
+  channel: ChannelName;
+  avgDaysToConvert: number;
+  firstTouchCount: number;
+  totalRevenue: number;
+  fastestConversionDays: number;
+  color: string;
+}
+
+export interface ConversionLagMetrics {
+  overallAvgDays: number;
+  medianDays: number;
+  buckets: ConversionLagBucket[];
+  byStartingChannel: ChannelLagSpeed[];
+  fastestChannel: ChannelName;
+  longestChannel: ChannelName;
+  totalConvertedUsers: number;
+}
+

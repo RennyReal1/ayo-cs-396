@@ -19,6 +19,11 @@ import {
   AudienceInsightsData,
   JourneyLengthAudiencePoint,
   ChannelDiversityAudiencePoint,
+  SequenceAnalysisResult,
+  NextTransitionOption,
+  ConversionLagMetrics,
+  ConversionLagBucket,
+  ChannelLagSpeed,
 } from '../types';
 
 export const CHANNELS: ChannelName[] = ['Search', 'YouTube', 'Display', 'Discover', 'Gmail', 'Direct'];
@@ -945,6 +950,285 @@ export function computeAudienceInsights(
     multiChannelConvRate: Number(multiChannelConvRate.toFixed(1)),
     singleChannelConvRate: Number(singleChannelConvRate.toFixed(1)),
     liftMultiChannel: Number(liftMultiChannel.toFixed(0)),
+  };
+}
+
+/**
+ * Analyze customer journeys matching an interactive sequence of steps (e.g. ['YouTube', 'Search'])
+ * Supports 'Any' at any step position.
+ * Computes:
+ * - Match count & % of total traffic
+ * - Conversions count & conversion rate
+ * - Lift vs overall baseline conversion rate
+ * - Total revenue & AOV
+ * - Average days to convert for matched users
+ * - "Next Step Transitions" (Markov forward branch probabilities)
+ */
+export function computeSequenceAnalysis(
+  journeys: UserJourney[],
+  steps: (ChannelName | 'Any')[]
+): SequenceAnalysisResult {
+  const totalJourneysCount = journeys.length;
+  const totalConverted = journeys.filter((j) => j.converted).length;
+  const baselineConversionRate = totalJourneysCount > 0 ? (totalConverted / totalJourneysCount) * 100 : 0;
+
+  // Filter journeys matching the sequence
+  const activeSteps = steps.filter(Boolean);
+
+  const matchingJourneys = journeys.filter((j) => {
+    if (activeSteps.length === 0) return true;
+    if (j.path.length < activeSteps.length) return false;
+
+    for (let i = 0; i < activeSteps.length; i++) {
+      const targetChannel = activeSteps[i];
+      if (targetChannel !== 'Any' && j.path[i] !== targetChannel) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const matchingJourneysCount = matchingJourneys.length;
+  const shareOfTraffic = totalJourneysCount > 0 ? (matchingJourneysCount / totalJourneysCount) * 100 : 0;
+
+  const convertedMatching = matchingJourneys.filter((j) => j.converted);
+  const conversionsCount = convertedMatching.length;
+  const conversionRate = matchingJourneysCount > 0 ? (conversionsCount / matchingJourneysCount) * 100 : 0;
+  const liftVsBaseline =
+    baselineConversionRate > 0
+      ? ((conversionRate - baselineConversionRate) / baselineConversionRate) * 100
+      : 0;
+
+  const totalRevenue = convertedMatching.reduce((s, j) => s + j.total_value, 0);
+  const avgOrderValue = conversionsCount > 0 ? totalRevenue / conversionsCount : 0;
+
+  // Days to convert for converted matching
+  let totalDays = 0;
+  let countWithDays = 0;
+  convertedMatching.forEach((j) => {
+    const t0 = new Date(j.first_timestamp).getTime();
+    const t1 = new Date(j.last_timestamp).getTime();
+    if (!isNaN(t0) && !isNaN(t1)) {
+      const days = Math.max(0, (t1 - t0) / (1000 * 60 * 60 * 24));
+      totalDays += days;
+      countWithDays += 1;
+    }
+  });
+  const avgDaysToConvert = countWithDays > 0 ? totalDays / countWithDays : 0;
+
+  // Next step transitions
+  const nextStepIndex = activeSteps.length; // 0-based index of next touchpoint
+  const transitionCounts = new Map<string, number>();
+
+  matchingJourneys.forEach((j) => {
+    if (j.path.length > nextStepIndex) {
+      const nextCh = j.path[nextStepIndex];
+      transitionCounts.set(nextCh, (transitionCounts.get(nextCh) || 0) + 1);
+    } else {
+      if (j.converted) {
+        transitionCounts.set('Converted', (transitionCounts.get('Converted') || 0) + 1);
+      } else {
+        transitionCounts.set('Dropped Off', (transitionCounts.get('Dropped Off') || 0) + 1);
+      }
+    }
+  });
+
+  const nextStepTransitions: NextTransitionOption[] = [];
+  const targetColors: Record<string, string> = {
+    ...CHANNEL_COLORS,
+    Converted: '#137333',
+    'Dropped Off': '#d93025',
+  };
+
+  transitionCounts.forEach((cnt, target) => {
+    const pct = matchingJourneysCount > 0 ? (cnt / matchingJourneysCount) * 100 : 0;
+    nextStepTransitions.push({
+      target: target as ChannelName | 'Converted' | 'Dropped Off',
+      count: cnt,
+      percentage: Number(pct.toFixed(1)),
+      color: targetColors[target] || '#70757a',
+    });
+  });
+
+  nextStepTransitions.sort((a, b) => b.count - a.count);
+
+  return {
+    steps: activeSteps,
+    matchingJourneysCount,
+    totalJourneysCount,
+    shareOfTraffic: Number(shareOfTraffic.toFixed(1)),
+    conversionsCount,
+    conversionRate: Number(conversionRate.toFixed(1)),
+    baselineConversionRate: Number(baselineConversionRate.toFixed(1)),
+    liftVsBaseline: Number(liftVsBaseline.toFixed(1)),
+    totalRevenue,
+    avgOrderValue: Number(avgOrderValue.toFixed(0)),
+    avgDaysToConvert: Number(avgDaysToConvert.toFixed(1)),
+    nextStepTransitions,
+    matchingJourneys,
+  };
+}
+
+/**
+ * Compute conversion lag & latency distribution:
+ * - Time from first touchpoint to final conversion
+ * - Time buckets: < 24 Hours, 1-3 Days, 4-7 Days, 8-14 Days, 15+ Days
+ * - Velocity by starting channel
+ */
+export function computeConversionLagMetrics(journeys: UserJourney[]): ConversionLagMetrics {
+  const converters = journeys.filter((j) => j.converted);
+  const totalConvertedUsers = converters.length;
+
+  if (totalConvertedUsers === 0) {
+    return {
+      overallAvgDays: 0,
+      medianDays: 0,
+      buckets: [],
+      byStartingChannel: [],
+      fastestChannel: 'Search',
+      longestChannel: 'Display',
+      totalConvertedUsers: 0,
+    };
+  }
+
+  // Calculate days for each converter
+  const journeyDays: { journey: UserJourney; days: number }[] = [];
+  converters.forEach((j) => {
+    const t0 = new Date(j.first_timestamp).getTime();
+    const t1 = new Date(j.last_timestamp).getTime();
+    const diffMs = Math.max(0, t1 - t0);
+    const days = diffMs / (1000 * 60 * 60 * 24);
+    journeyDays.push({ journey: j, days });
+  });
+
+  // Average & Median
+  const totalDays = journeyDays.reduce((s, item) => s + item.days, 0);
+  const overallAvgDays = totalDays / totalConvertedUsers;
+
+  const sortedDays = [...journeyDays].map((x) => x.days).sort((a, b) => a - b);
+  const mid = Math.floor(sortedDays.length / 2);
+  const medianDays = sortedDays.length % 2 !== 0 ? sortedDays[mid] : (sortedDays[mid - 1] + sortedDays[mid]) / 2;
+
+  // Buckets definitions
+  const bucketDefs = [
+    {
+      id: 'day_0',
+      label: '< 24 Hours',
+      minDays: 0,
+      maxDays: 1,
+      description: 'Same-day impulse & urgent checkouts',
+      color: '#137333', // Green
+    },
+    {
+      id: 'days_1_3',
+      label: '1 – 3 Days',
+      minDays: 1,
+      maxDays: 3,
+      description: 'Quick comparison & high-intent research',
+      color: '#1a73e8', // Blue
+    },
+    {
+      id: 'days_4_7',
+      label: '4 – 7 Days',
+      minDays: 3,
+      maxDays: 7,
+      description: 'Within one week consideration window',
+      color: '#f9ab00', // Amber
+    },
+    {
+      id: 'days_8_14',
+      label: '8 – 14 Days',
+      minDays: 7,
+      maxDays: 14,
+      description: 'Bi-weekly cycle & paycheck timing',
+      color: '#9334e8', // Purple
+    },
+    {
+      id: 'days_15_plus',
+      label: '15+ Days',
+      minDays: 14,
+      maxDays: 999,
+      description: 'Extended multi-touch deliberation',
+      color: '#ea4335', // Red
+    },
+  ];
+
+  const buckets: ConversionLagBucket[] = bucketDefs.map((def) => {
+    const matching = journeyDays.filter((item) => {
+      if (def.id === 'day_0') {
+        return item.days < 1;
+      }
+      if (def.id === 'days_15_plus') {
+        return item.days >= 14;
+      }
+      return item.days >= def.minDays && item.days < def.maxDays;
+    });
+
+    const conversions = matching.length;
+    const percentage = totalConvertedUsers > 0 ? (conversions / totalConvertedUsers) * 100 : 0;
+    const revenue = matching.reduce((s, item) => s + item.journey.total_value, 0);
+    const avgOrderValue = conversions > 0 ? revenue / conversions : 0;
+
+    return {
+      id: def.id,
+      label: def.label,
+      minDays: def.minDays,
+      maxDays: def.maxDays,
+      conversions,
+      percentage: Number(percentage.toFixed(1)),
+      revenue,
+      avgOrderValue: Number(avgOrderValue.toFixed(0)),
+      description: def.description,
+      color: def.color,
+    };
+  });
+
+  // Group by starting channel
+  const byChannelMap = new Map<ChannelName, { days: number[]; revenue: number }>();
+  CHANNELS.forEach((ch) => byChannelMap.set(ch, { days: [], revenue: 0 }));
+
+  journeyDays.forEach(({ journey, days }) => {
+    const startChannel = journey.path[0];
+    if (byChannelMap.has(startChannel)) {
+      const entry = byChannelMap.get(startChannel)!;
+      entry.days.push(days);
+      entry.revenue += journey.total_value;
+    }
+  });
+
+  const byStartingChannel: ChannelLagSpeed[] = [];
+  byChannelMap.forEach((entry, ch) => {
+    if (entry.days.length > 0) {
+      const avg = entry.days.reduce((s, d) => s + d, 0) / entry.days.length;
+      const fastest = Math.min(...entry.days);
+      byStartingChannel.push({
+        channel: ch,
+        avgDaysToConvert: Number(avg.toFixed(1)),
+        firstTouchCount: entry.days.length,
+        totalRevenue: entry.revenue,
+        fastestConversionDays: Number(fastest.toFixed(1)),
+        color: CHANNEL_COLORS[ch],
+      });
+    }
+  });
+
+  // Sort by fastest to slowest
+  byStartingChannel.sort((a, b) => a.avgDaysToConvert - b.avgDaysToConvert);
+
+  const fastestChannel = byStartingChannel.length > 0 ? byStartingChannel[0].channel : 'Search';
+  const longestChannel =
+    byStartingChannel.length > 0
+      ? byStartingChannel[byStartingChannel.length - 1].channel
+      : 'Display';
+
+  return {
+    overallAvgDays: Number(overallAvgDays.toFixed(1)),
+    medianDays: Number(medianDays.toFixed(1)),
+    buckets,
+    byStartingChannel,
+    fastestChannel,
+    longestChannel,
+    totalConvertedUsers,
   };
 }
 
