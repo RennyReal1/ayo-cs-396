@@ -589,7 +589,7 @@ export default function App() {
                     </span>
                   </button>
 
-                  {/* Upload CSV Button (Requirement 1: Opens file picker & accepts drag-and-drop) */}
+                  {/* Upload CSV Button */}
                   <label
                     id="upload-csv-btn"
                     onDragOver={(e) => {
@@ -603,7 +603,7 @@ export default function App() {
                       }
                     }}
                     className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#1a73e8] hover:bg-[#174ea6] text-white rounded-xl text-xs font-bold shadow-xs hover:shadow-sm transition-all cursor-pointer select-none"
-                    title="Upload customer journey touchpoints from CSV (accepts .csv only, drag-and-drop supported)"
+                    title="Upload customer journey touchpoints from CSV (Shopify, GA4, Meta Ads)"
                   >
                     <Upload className="w-3.5 h-3.5" />
                     <span>Upload CSV</span>
@@ -621,28 +621,27 @@ export default function App() {
                     />
                   </label>
 
-                  {/* BigQuery & Google Cloud Connector Button */}
+                  {/* Connect Database / BigQuery (Clearer label) */}
                   <button
                     type="button"
                     onClick={() => setIsBigQueryModalOpen(true)}
-                    className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#f8fafd] hover:bg-[#e8f0fe] border border-blue-200 text-[#1a73e8] rounded-xl text-xs font-bold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
-                    title="Connect directly to Google BigQuery, Cloud Storage (GCS), or Firestore stream"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-xl text-xs font-semibold shadow-2xs hover:shadow-xs transition-all cursor-pointer"
+                    title="Connect company database (Google BigQuery or Cloud Storage)"
                   >
-                    <Database className="w-3.5 h-3.5" />
-                    <span>BigQuery & Cloud</span>
+                    <Database className="w-3.5 h-3.5 text-gray-500" />
+                    <span>Connect Database</span>
                   </button>
 
-                  {/* Download CSV Template Link (Requirement 8) */}
+                  {/* Download CSV Template Link */}
                   <button
                     type="button"
                     id="download-template-link"
                     onClick={downloadCsvTemplate}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#1a73e8] hover:bg-[#e8f0fe] rounded-xl transition-colors cursor-pointer"
-                    title="Download clean CSV template with headers and 3 example rows"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-2 text-xs font-semibold text-gray-500 hover:text-[#1a73e8] hover:bg-[#e8f0fe] rounded-xl transition-colors cursor-pointer"
+                    title="Download clean CSV template"
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Download CSV template</span>
-                    <span className="sm:hidden">Template</span>
+                    <span className="hidden sm:inline">Template</span>
                   </button>
 
                   {/* Export Report Button */}
@@ -811,6 +810,7 @@ export default function App() {
         onClose={() => setIsBigQueryModalOpen(false)}
         onImportSuccess={handleUploadSuccess}
         firestoreDatabaseId={activeProjectProfile.databaseId}
+        onOpenCsvModal={() => setIsUploadModalOpen(true)}
       />
 
       {/* Marketer Quick Guide & Question Finder Modal */}
