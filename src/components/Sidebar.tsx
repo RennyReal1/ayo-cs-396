@@ -7,6 +7,7 @@ import {
   Users,
   Sparkles,
   FileText,
+  History,
   Settings,
   HelpCircle,
 } from 'lucide-react';
@@ -25,6 +26,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab }) => {
     { id: 'audiences', label: 'Audience Insights', icon: Users },
     { id: 'recommendations', label: 'AI Recommendations', icon: Sparkles },
     { id: 'reports', label: 'Reports', icon: FileText },
+    { id: 'history', label: 'History & Benchmarks', icon: History },
   ];
 
   return (

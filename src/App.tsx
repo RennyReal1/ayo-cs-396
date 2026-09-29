@@ -38,6 +38,7 @@ import { ChannelPerformancePage } from './components/pages/ChannelPerformancePag
 import { AudienceInsightsPage } from './components/pages/AudienceInsightsPage';
 import { AIRecommendationsPage } from './components/pages/AIRecommendationsPage';
 import { ReportsPage } from './components/pages/ReportsPage';
+import { HistoryPage } from './components/pages/HistoryPage';
 import { PlaceholderPage } from './components/pages/PlaceholderPage';
 
 import {
@@ -692,7 +693,17 @@ export default function App() {
             />
           )}
 
-          {/* 8. Settings Page */}
+          {/* 8. History & Benchmarks Page */}
+          {activeTab === 'history' && (
+            <HistoryPage
+              metrics={metrics}
+              touchpoints={filteredTouchpoints}
+              onShowToast={showToast}
+              collaborators={collaborators}
+            />
+          )}
+
+          {/* 9. Settings Page */}
           {activeTab === 'settings' && (
             <PlaceholderPage
               title="Settings"
