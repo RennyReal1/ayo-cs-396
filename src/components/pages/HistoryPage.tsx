@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   History,
   GitCommit,
@@ -16,9 +16,12 @@ import {
   Save,
   Clock,
   Filter,
+  RefreshCw,
 } from 'lucide-react';
-import { DashboardMetrics, Touchpoint, WorkspaceUser } from '../../types';
+import { DashboardMetrics, Touchpoint, WorkspaceUser, ActivityEvent, MarketingSnapshot } from '../../types';
 import { PeriodComparisonCard } from '../PeriodComparisonCard';
+import { getActivityLog } from '../../utils/activityLogger';
+import { fetchSnapshotsFromFirestore } from '../../utils/dataEngine';
 
 interface HistoryPageProps {
   metrics: DashboardMetrics;
@@ -26,109 +29,6 @@ interface HistoryPageProps {
   onShowToast?: (msg: string) => void;
   collaborators?: WorkspaceUser[];
 }
-
-interface ActivityEvent {
-  id: string;
-  user: string;
-  avatarColor: string;
-  initials: string;
-  action: string;
-  category: 'Upload' | 'Snapshot' | 'AI' | 'Slides' | 'Attribution';
-  timestamp: string;
-  details: string;
-}
-
-const INITIAL_ACTIVITY_LOG: ActivityEvent[] = [
-  {
-    id: 'act_1',
-    user: 'Ayomide Rilwan',
-    avatarColor: '#1a73e8',
-    initials: 'AR',
-    action: 'Saved Historical Snapshot',
-    category: 'Snapshot',
-    timestamp: 'Today at 12:02 PM',
-    details: 'Saved "Q4 Holiday Blitz 2025" benchmark to Firestore with 78 conversions and $28,450 revenue.',
-  },
-  {
-    id: 'act_2',
-    user: 'Gemini 2.5 Flash',
-    avatarColor: '#9334e8',
-    initials: 'AI',
-    action: 'Synthesized Recommendations',
-    category: 'AI',
-    timestamp: 'Today at 11:58 AM',
-    details: 'Generated 3 algorithmic cross-channel discoveries and recommended shifting 15% budget to Top-of-Funnel Video.',
-  },
-  {
-    id: 'act_3',
-    user: 'Ayomide Rilwan',
-    avatarColor: '#1a73e8',
-    initials: 'AR',
-    action: 'Configured Ad Placement Advisor',
-    category: 'Attribution',
-    timestamp: 'Today at 11:55 AM',
-    details: 'Simulated "Coachella Festival Clear Bag" full-funnel placement (45% Video, 35% Display, 20% Search).',
-  },
-  {
-    id: 'act_4',
-    user: 'Ayo (UIC)',
-    avatarColor: '#d9381e',
-    initials: 'UIC',
-    action: 'Generated Google Slides Deck',
-    category: 'Slides',
-    timestamp: 'Yesterday at 4:30 PM',
-    details: 'Exported executive presentation deck with attribution model comparison charts.',
-  },
-  {
-    id: 'act_5',
-    user: 'Ayomide Rilwan',
-    avatarColor: '#1a73e8',
-    initials: 'AR',
-    action: 'Uploaded Multi-Channel Touchpoints',
-    category: 'Upload',
-    timestamp: 'Sep 27, 2026 at 2:15 PM',
-    details: 'Synced 300 customer journeys across Search, YouTube, Display, Discover, Gmail, and Direct.',
-  },
-];
-
-const CAMPAIGN_MILESTONES = [
-  {
-    period: 'Q4 2025 (Current)',
-    title: 'Coachella Festival & Holiday Multi-Touch Blitz',
-    highlight: '+34.7% Revenue vs. Q3',
-    description:
-      'Integrated YouTube short-form styling reels with high-bid Search closing ads. Achieved 26.0% conversion rate with 3.4 days average sales cycle.',
-    status: 'Active',
-    color: '#137333',
-  },
-  {
-    period: 'Q3 2025',
-    title: 'Summer Discovery & Visual Feed Expansion',
-    highlight: '22.1% Conv. Rate • $19,840 Rev',
-    description:
-      'Expanded into Google Discover starburst feeds and Gmail promos. Established baseline consideration lag of 3.8 days.',
-    status: 'Archived',
-    color: '#1a73e8',
-  },
-  {
-    period: 'Q2 2025',
-    title: 'Mid-Year Search & Direct Re-engagement',
-    highlight: '19.4% Conv. Rate • $15,200 Rev',
-    description:
-      'Focused strictly on single-touch search ads. Identified high cart drop-off requiring visual top-of-funnel retargeting.',
-    status: 'Archived',
-    color: '#b06000',
-  },
-  {
-    period: 'Q1 2025',
-    title: 'Initial Multi-Channel Setup & Tracking Launch',
-    highlight: '16.8% Conv. Rate • $12,400 Rev',
-    description:
-      'Initial deployment of Firestore p2c_touchpoints tracking engine. Established first user path tracking architecture.',
-    status: 'Baseline',
-    color: '#70757a',
-  },
-];
 
 export const HistoryPage: React.FC<HistoryPageProps> = ({
   metrics,
@@ -138,8 +38,30 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'benchmarks' | 'activity' | 'milestones'>('benchmarks');
   const [activityCategoryFilter, setActivityCategoryFilter] = useState<string>('all');
+  const [activityLog, setActivityLog] = useState<ActivityEvent[]>([]);
+  const [snapshots, setSnapshots] = useState<MarketingSnapshot[]>([]);
+  const [isLoadingSnapshots, setIsLoadingSnapshots] = useState(false);
 
-  const filteredActivity = INITIAL_ACTIVITY_LOG.filter((act) => {
+  // Load activity log and live Firestore snapshots on mount and tab switch
+  useEffect(() => {
+    setActivityLog(getActivityLog());
+
+    async function loadSnapshots() {
+      try {
+        setIsLoadingSnapshots(true);
+        const remote = await fetchSnapshotsFromFirestore();
+        setSnapshots(remote);
+      } catch (err) {
+        console.error('Failed to load snapshots for history page:', err);
+      } finally {
+        setIsLoadingSnapshots(false);
+      }
+    }
+
+    loadSnapshots();
+  }, [activeSubTab]);
+
+  const filteredActivity = activityLog.filter((act) => {
     if (activityCategoryFilter !== 'all' && act.category !== activityCategoryFilter) {
       return false;
     }
@@ -189,7 +111,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
-            <span>Workspace Activity Log</span>
+            <span>Workspace Activity Log ({activityLog.length})</span>
           </button>
 
           <button
@@ -202,7 +124,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({
             }`}
           >
             <GitCommit className="w-3.5 h-3.5" />
-            <span>Strategic Milestones</span>
+            <span>Milestone History</span>
           </button>
         </div>
       </div>
@@ -212,7 +134,7 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({
         <PeriodComparisonCard currentMetrics={metrics} onShowToast={onShowToast} />
       )}
 
-      {/* Sub-tab 2: Workspace Activity Log */}
+      {/* Sub-tab 2: Workspace Activity Log (Dynamic) */}
       {activeSubTab === 'activity' && (
         <div className="space-y-6">
           <div className="bg-white rounded-2xl border border-gray-200/80 p-5 shadow-xs space-y-4">
@@ -246,90 +168,107 @@ export const HistoryPage: React.FC<HistoryPageProps> = ({
             </div>
 
             <div className="divide-y divide-gray-100">
-              {filteredActivity.map((act) => (
-                <div key={act.id} className="py-3.5 flex items-start gap-3.5">
-                  <div
-                    className="w-8 h-8 rounded-full text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 shadow-2xs"
-                    style={{ backgroundColor: act.avatarColor }}
-                  >
-                    {act.initials}
-                  </div>
+              {filteredActivity.length === 0 ? (
+                <div className="py-8 text-center text-xs text-gray-400">
+                  No activity found for this category filter.
+                </div>
+              ) : (
+                filteredActivity.map((act) => (
+                  <div key={act.id} className="py-3.5 flex items-start gap-3.5">
+                    <div
+                      className="w-8 h-8 rounded-full text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 shadow-2xs"
+                      style={{ backgroundColor: act.avatarColor || '#1a73e8' }}
+                    >
+                      {act.initials || 'AR'}
+                    </div>
 
-                  <div className="flex-1 space-y-0.5">
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-gray-900">{act.user}</span>
-                        <span className="text-xs text-gray-600 font-medium">{act.action}</span>
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.2 rounded-full ${
-                            act.category === 'Snapshot'
-                              ? 'bg-blue-50 text-[#1a73e8]'
-                              : act.category === 'AI'
-                              ? 'bg-purple-50 text-[#9334e8]'
-                              : act.category === 'Upload'
-                              ? 'bg-emerald-50 text-[#137333]'
-                              : 'bg-amber-50 text-[#b06000]'
-                          }`}
-                        >
-                          {act.category}
+                    <div className="flex-1 space-y-0.5">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-gray-900">{act.user}</span>
+                          <span className="text-xs text-gray-600 font-medium">{act.action}</span>
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.2 rounded-full ${
+                              act.category === 'Snapshot'
+                                ? 'bg-blue-50 text-[#1a73e8]'
+                                : act.category === 'AI'
+                                ? 'bg-purple-50 text-[#9334e8]'
+                                : act.category === 'Upload'
+                                ? 'bg-emerald-50 text-[#137333]'
+                                : 'bg-amber-50 text-[#b06000]'
+                            }`}
+                          >
+                            {act.category}
+                          </span>
+                        </div>
+                        <span className="text-[11px] text-gray-400 font-mono">
+                          {act.timestamp}
                         </span>
                       </div>
-                      <span className="text-[11px] text-gray-400 font-mono">
-                        {act.timestamp}
-                      </span>
+                      <p className="text-xs text-gray-600 leading-relaxed">{act.details}</p>
                     </div>
-                    <p className="text-xs text-gray-600 leading-relaxed">{act.details}</p>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Sub-tab 3: Strategic Milestones Timeline */}
+      {/* Sub-tab 3: Strategic Milestones Timeline (Dynamic from Live Firestore Snapshots) */}
       {activeSubTab === 'milestones' && (
         <div className="space-y-6">
           <div className="bg-white rounded-2xl border border-gray-200/80 p-5 shadow-xs space-y-4">
             <div>
               <h3 className="text-sm font-bold text-gray-900">
-                Quarterly Marketing Strategy Milestones
+                Marketing Benchmark Milestones (from Firestore)
               </h3>
               <p className="text-xs text-gray-500 mt-0.5">
-                Evolution of attribution models, channel investments, and campaign results over the past 4 quarters
+                Saved campaign periods reflecting empirical conversion results and revenue
               </p>
             </div>
 
+            {/* Current Active Dataset Milestone */}
             <div className="relative pl-6 space-y-6 before:content-[''] before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-200">
-              {CAMPAIGN_MILESTONES.map((m, idx) => (
-                <div key={idx} className="relative group">
-                  {/* Timeline Node dot */}
-                  <div
-                    className="absolute -left-6 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white shadow-xs"
-                    style={{ backgroundColor: m.color }}
-                  />
+              <div className="relative group">
+                <div className="absolute -left-6 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white shadow-xs bg-[#137333]" />
+                <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/20 space-y-2">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold font-mono text-emerald-800">
+                        {metrics.dateRangeLabel || 'Current Live Period'} (Active)
+                      </span>
+                      <h4 className="text-sm font-bold text-gray-900">Live Touchpoint Dataset</h4>
+                    </div>
+                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-[#137333]">
+                      ${metrics.totalRevenue.toLocaleString()} Revenue • {metrics.totalConversions} Conversions
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-600 leading-relaxed">
+                    Active dataset tracks {metrics.totalUsers.toLocaleString()} users with {metrics.avgJourneyLength.toFixed(1)} avg touches. Top closing channel: <strong>{metrics.topChannel}</strong> ({metrics.topChannelShare.toFixed(1)}% share).
+                  </p>
+                </div>
+              </div>
 
+              {/* Firestore Saved Snapshots */}
+              {snapshots.map((s) => (
+                <div key={s.id} className="relative group">
+                  <div className="absolute -left-6 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white shadow-xs bg-[#1a73e8]" />
                   <div className="p-4 rounded-xl border border-gray-200/80 bg-[#f8fafd] hover:bg-white transition-all space-y-2">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold font-mono text-gray-500">
-                          {m.period}
+                          {s.periodLabel}
                         </span>
-                        <h4 className="text-sm font-bold text-gray-900">{m.title}</h4>
+                        <h4 className="text-sm font-bold text-gray-900">{s.name}</h4>
                       </div>
-
-                      <span
-                        className="text-xs font-bold px-2.5 py-0.5 rounded-full"
-                        style={{
-                          backgroundColor: `${m.color}15`,
-                          color: m.color,
-                        }}
-                      >
-                        {m.highlight}
+                      <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-[#1a73e8]">
+                        ${s.totalRevenue.toLocaleString()} Rev • {s.conversionRate}% Rate
                       </span>
                     </div>
-
-                    <p className="text-xs text-gray-600 leading-relaxed">{m.description}</p>
+                    <p className="text-xs text-gray-600 leading-relaxed">
+                      Captured {s.totalConversions} conversions across {s.totalUsers} users ({s.avgJourneyLength} avg touches). Top channel: <strong>{s.topChannel}</strong>.
+                    </p>
                   </div>
                 </div>
               ))}

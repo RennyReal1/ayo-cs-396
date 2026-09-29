@@ -290,3 +290,14 @@ export interface JourneyMotiveClassification {
   topChannels: ChannelName[];
 }
 
+export interface ActivityEvent {
+  id: string;
+  user: string;
+  avatarColor: string;
+  initials: string;
+  action: string;
+  category: 'Upload' | 'Snapshot' | 'AI' | 'Slides' | 'Attribution';
+  timestamp: string;
+  details: string;
+}
+

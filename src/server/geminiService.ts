@@ -147,3 +147,124 @@ Return strictly valid JSON adhering to the specified schema.`;
 
   return getDefaultInsights(metrics);
 }
+
+export async function generatePlacementStrategy(reqData: any) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const prod = reqData.productName || 'Coachella Festival Clear Bag';
+  const cat = reqData.category || 'Event Accessories';
+  const price = reqData.pricePoint || 68;
+  const budget = reqData.budgetTotal || 15000;
+  const motive = reqData.targetMotive || 'Event Prep';
+  const aud = reqData.targetAudience || 'Festival attendees';
+  const emp = reqData.empiricalData || {};
+
+  const topDisc = emp.topDiscoveryChannel || 'YouTube';
+  const topNurt = emp.topNurturingChannel || 'Display';
+  const topClose = emp.topClosingChannel || 'Search';
+  const peakDay = emp.peakConversionDay || 'Tuesday';
+  const peakDiscDay = emp.peakDiscoveryDay || 'Saturday';
+
+  const defaultStrategy = {
+    campaignName: prod,
+    targetAudience: aud,
+    pricePoint: price,
+    motive: motive,
+    executiveSummary: `Based on your live dataset, ${topDisc} leads top-of-funnel reach, while ${topClose} delivers the highest conversion velocity. For ${prod} ($${price}), flight visual discovery on ${peakDiscDay} and convert high-intent searchers on ${peakDay}.`,
+    adSchedulingTakeaway: `Ramp up ${topDisc} budget Friday through Sunday evenings for inspiration, then switch aggressively to ${topClose} on ${peakDay} to finalize checkout before deadlines.`,
+    stages: [
+      {
+        stageName: 'Top-of-Funnel (Discovery)',
+        budgetSharePct: 45,
+        recommendedChannels: [topDisc, 'Discover'],
+        creativeFormat: `Short-form discovery & unboxing: "Why you need ${prod} for ${motive}"`,
+        bestDaysToSend: `Friday – Sunday (${peakDiscDay} peak)`,
+        keyMotive: 'Emotional discovery and desire creation',
+        rationale: `Introduces ${prod} to prospective buyers during leisure browsing hours before active search occurs.`,
+      },
+      {
+        stageName: 'Middle-of-Funnel (Consideration)',
+        budgetSharePct: 35,
+        recommendedChannels: [topNurt, 'Gmail'],
+        creativeFormat: `Feature comparisons & review spotlights addressing hesitation for ${prod}`,
+        bestDaysToSend: 'Monday – Wednesday midday',
+        keyMotive: 'Overcoming objections and policy verification',
+        rationale: `Retargets users with social proof and durability ratings on ${topNurt}.`,
+      },
+      {
+        stageName: 'Bottom-of-Funnel (Conversion)',
+        budgetSharePct: 20,
+        recommendedChannels: [topClose, 'Direct'],
+        creativeFormat: `Urgency-driven checkout ads: "Buy ${prod} now - guaranteed fast delivery"`,
+        bestDaysToSend: `${peakDay} (Highest empirical checkout velocity)`,
+        keyMotive: 'Urgency & delivery arrival guarantee',
+        rationale: `Captures high-intent search queries on ${topClose} when buyers have credit card ready.`,
+      },
+    ],
+  };
+
+  if (!apiKey) {
+    return defaultStrategy;
+  }
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
+
+    const prompt = `You are a Senior Full-Funnel Growth Marketer.
+Given the following product and real empirical marketing attribution metrics:
+Product Name: ${prod}
+Category: ${cat}
+Price Point: $${price}
+Total Budget: $${budget}
+Customer Motive: ${motive}
+Target Audience: ${aud}
+Empirical Attribution Data from Real Touchpoints:
+- Top Discovery Channel: ${topDisc}
+- Top Nurturing Channel: ${topNurt}
+- Top Closing Channel: ${topClose}
+- Peak Conversion Day: ${peakDay}
+- Peak Discovery Day: ${peakDiscDay}
+- Live Conversion Rate: ${emp.conversionRate || 25}%
+- Live AOV: $${emp.avgOrderValue || price}
+
+Create a personalized 3-stage full-funnel ad placement strategy (Top of Funnel, Middle of Funnel, Bottom of Funnel).
+Return strictly valid JSON adhering to schema:
+- campaignName (string)
+- targetAudience (string)
+- pricePoint (number)
+- motive (string)
+- executiveSummary (string - 2 concise sentences connecting the product to the empirical data)
+- adSchedulingTakeaway (string - actionable dayparting rule specifying which days of week to send ads based on ${peakDay} and ${peakDiscDay})
+- stages: array of exactly 3 objects (Top, Middle, Bottom funnel) with:
+  - stageName (string)
+  - budgetSharePct (number e.g. 45, 35, 20)
+  - recommendedChannels (array of strings, choosing from [Search, YouTube, Display, Discover, Gmail, Direct])
+  - creativeFormat (string - creative ad angle tailored to ${prod})
+  - bestDaysToSend (string - day of week flight recommendation)
+  - keyMotive (string)
+  - rationale (string)`;
+
+    const res = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+      },
+    });
+
+    if (res.text) {
+      return JSON.parse(res.text);
+    }
+  } catch (err) {
+    console.error('Gemini generatePlacementStrategy error:', err);
+  }
+
+  return defaultStrategy;
+}
+

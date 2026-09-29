@@ -14,7 +14,7 @@ import {
   Layers,
   Compass,
 } from 'lucide-react';
-import { AIInsight, RecommendedAction, DashboardMetrics } from '../../types';
+import { AIInsight, RecommendedAction, DashboardMetrics, Touchpoint } from '../../types';
 import {
   exportInsightsToSlides,
   GeneratedSlidePackage,
@@ -29,7 +29,8 @@ interface AIRecommendationsPageProps {
   recommendations: RecommendedAction[];
   onGenerateInsights: () => void;
   isLoading: boolean;
-  metrics?: DashboardMetrics;
+  metrics: DashboardMetrics;
+  touchpoints: Touchpoint[];
   onShowToast?: (msg: string) => void;
 }
 
@@ -39,6 +40,7 @@ export const AIRecommendationsPage: React.FC<AIRecommendationsPageProps> = ({
   onGenerateInsights,
   isLoading,
   metrics,
+  touchpoints,
   onShowToast,
 }) => {
   const [activeTab, setActiveTab] = useState<'advisor' | 'gemini'>('advisor');
@@ -119,7 +121,13 @@ export const AIRecommendationsPage: React.FC<AIRecommendationsPageProps> = ({
       </div>
 
       {/* Tab 1: Campaign Placement Advisor */}
-      {activeTab === 'advisor' && <CampaignPlacementAdvisor />}
+      {activeTab === 'advisor' && (
+        <CampaignPlacementAdvisor
+          touchpoints={touchpoints}
+          metrics={metrics}
+          onShowToast={onShowToast}
+        />
+      )}
 
       {/* Tab 2: Gemini Synthesis & Slides Deck */}
       {activeTab === 'gemini' && (

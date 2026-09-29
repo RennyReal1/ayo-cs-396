@@ -21,6 +21,7 @@ import {
   fetchSnapshotsFromFirestore,
   deleteSnapshotFromFirestore,
 } from '../utils/dataEngine';
+import { logActivity } from '../utils/activityLogger';
 
 interface PeriodComparisonCardProps {
   currentMetrics: DashboardMetrics;
@@ -121,6 +122,11 @@ export const PeriodComparisonCard: React.FC<PeriodComparisonCardProps> = ({
       const created: MarketingSnapshot = { ...newSnap, id: docId };
       setSnapshots((prev) => [created, ...prev]);
       onShowToast?.(`Snapshot "${newSnap.name}" saved to Firestore!`);
+      logActivity(
+        'Saved Historical Snapshot',
+        'Snapshot',
+        `Saved "${newSnap.name}" (${newSnap.periodLabel}) with ${newSnap.totalConversions} conversions and $${newSnap.totalRevenue.toLocaleString()} revenue.`
+      );
       setSnapshotName('');
     } catch (err) {
       console.error('Error saving snapshot:', err);

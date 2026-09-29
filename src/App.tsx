@@ -57,6 +57,7 @@ import {
   CHANNELS,
   CHANNEL_COLORS,
 } from './utils/dataEngine';
+import { logActivity } from './utils/activityLogger';
 import {
   testConnection,
   auth,
@@ -278,6 +279,7 @@ export default function App() {
       setTouchpoints(refreshed);
       if (showFeedback) {
         showToast(`Successfully seeded ${count} touchpoints for 300 users to Firestore!`);
+        logActivity('Seeded Multi-Channel Touchpoints', 'Upload', `Seeded ${count} customer journeys to Firestore.`);
       }
     } catch (err: any) {
       console.error('Seeding error:', err);
@@ -363,6 +365,11 @@ export default function App() {
         setInsights(data.insights);
         setRecommendations(data.recommendations);
         showToast('Gemini analyzed your 90-day touchpoints and updated insights!');
+        logActivity(
+          'Synthesized Gemini AI Insights',
+          'AI',
+          'Generated 3 algorithmic discoveries and 4 strategic recommendations.'
+        );
       }
     } catch (err: any) {
       console.error('Error generating insights:', err);
@@ -412,6 +419,11 @@ export default function App() {
       setTouchpoints(freshDocs);
       showToast(
         `Successfully ${mode === 'replace' ? 'replaced data with' : 'added'} ${importedCount.toLocaleString()} touchpoints in Firestore!`
+      );
+      logActivity(
+        'Uploaded Touchpoint CSV',
+        'Upload',
+        `Imported ${importedCount.toLocaleString()} touchpoints via CSV file (${mode} mode).`
       );
     } catch (err: any) {
       setDataError(err.message || 'Error reloading touchpoint records');
@@ -677,6 +689,7 @@ export default function App() {
               onGenerateInsights={handleGenerateInsights}
               isLoading={isGeneratingInsights}
               metrics={metrics}
+              touchpoints={filteredTouchpoints}
               onShowToast={showToast}
             />
           )}
