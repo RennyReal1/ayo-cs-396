@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Touchpoint, ChannelName } from '../types';
 import { uploadTouchpointsToFirestore, downloadCsvTemplate } from '../utils/dataEngine';
+import { segmentTouchpointChannel } from '../utils/channelSegmentation';
 import { ChannelIcon } from './ChannelIcon';
 
 interface CsvUploadModalProps {
@@ -181,22 +182,8 @@ export const CsvUploadModal: React.FC<CsvUploadModalProps> = ({
             return;
           }
 
-          // Smart Channel Normalization
-          const chLower = channelStr.toLowerCase();
-          let finalChannel: ChannelName = 'Direct';
-          if (chLower.includes('search') || chLower.includes('google search') || chLower.includes('cpc') || chLower.includes('bing') || chLower.includes('organic')) {
-            finalChannel = 'Search';
-          } else if (chLower.includes('youtube') || chLower.includes('video') || chLower.includes('tiktok') || chLower.includes('reels') || chLower.includes('watch')) {
-            finalChannel = 'YouTube';
-          } else if (chLower.includes('display') || chLower.includes('banner') || chLower.includes('gdn') || chLower.includes('network') || chLower.includes('retargeting')) {
-            finalChannel = 'Display';
-          } else if (chLower.includes('discover') || chLower.includes('feed') || chLower.includes('social') || chLower.includes('instagram') || chLower.includes('facebook') || chLower.includes('ig')) {
-            finalChannel = 'Discover';
-          } else if (chLower.includes('email') || chLower.includes('gmail') || chLower.includes('newsletter') || chLower.includes('promo')) {
-            finalChannel = 'Gmail';
-          } else {
-            finalChannel = 'Direct';
-          }
+          // Smart Dynamic Channel Segmentation via Rules
+          const finalChannel: ChannelName = segmentTouchpointChannel(channelStr);
 
           // Clean `converted`
           const rawConverted = convertedCol ? String(row[convertedCol] ?? '').trim().toLowerCase() : 'false';

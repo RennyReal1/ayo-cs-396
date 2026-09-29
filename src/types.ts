@@ -1,4 +1,22 @@
-export type ChannelName = 'Search' | 'YouTube' | 'Display' | 'Discover' | 'Gmail' | 'Direct';
+export type ChannelName =
+  | 'Search'
+  | 'YouTube'
+  | 'Display'
+  | 'Discover'
+  | 'Gmail'
+  | 'Direct'
+  | (string & {});
+
+export interface ChannelRule {
+  id: string;
+  channelName: string;
+  color: string;
+  description: string;
+  isCore?: boolean;
+  matchType: 'contains' | 'regex' | 'exact' | 'starts_with';
+  patterns: string[];
+  priority: number;
+}
 
 export interface Touchpoint {
   id?: string;

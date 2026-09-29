@@ -41,6 +41,7 @@ import { AudienceInsightsPage } from './components/pages/AudienceInsightsPage';
 import { AIRecommendationsPage } from './components/pages/AIRecommendationsPage';
 import { ReportsPage } from './components/pages/ReportsPage';
 import { HistoryPage } from './components/pages/HistoryPage';
+import { ChannelSegmentationSettingsPage } from './components/pages/ChannelSegmentationSettingsPage';
 import { PlaceholderPage } from './components/pages/PlaceholderPage';
 
 import {
@@ -50,7 +51,12 @@ import {
   RecommendedAction,
   GeminiInsightsResponse,
   WorkspaceUser,
+  ChannelRule,
 } from './types';
+import {
+  getChannelRules,
+  segmentTouchpointChannel,
+} from './utils/channelSegmentation';
 import {
   seedTouchpointsToFirestore,
   fetchTouchpointsFromFirestore,
@@ -296,10 +302,18 @@ export default function App() {
     }
   };
 
+  // Dynamic Channel Segmentation Rules State
+  const [channelRules, setChannelRules] = useState<ChannelRule[]>(getChannelRules());
+
   // Calculate metrics based on touchpoints and date range/search filters
   const filteredTouchpoints = useMemo(() => {
     if (!touchpoints || touchpoints.length === 0) return [];
-    let list = touchpoints;
+    
+    // Dynamically apply enterprise channel segmentation rules
+    let list = touchpoints.map((t) => ({
+      ...t,
+      channel: segmentTouchpointChannel(t.channel, channelRules),
+    }));
 
     // Filter by date range if applicable
     if (selectedDateRange.includes('Last 30 Days')) {
@@ -319,7 +333,7 @@ export default function App() {
     }
 
     return list;
-  }, [touchpoints, selectedDateRange, searchQuery]);
+  }, [touchpoints, selectedDateRange, searchQuery, channelRules]);
 
   // Compute all metrics directly from Firestore touchpoints
   const metrics: DashboardMetrics = useMemo(() => {
@@ -736,13 +750,12 @@ export default function App() {
             />
           )}
 
-          {/* 9. Settings Page */}
+          {/* 9. Channel Taxonomy & Segmentation Settings Page */}
           {activeTab === 'settings' && (
-            <PlaceholderPage
-              title="Settings"
-              subtitle="Configure attribution windows, tracking snippets, and account preferences"
-              iconType="settings"
-              onBackToOverview={() => setActiveTab('overview')}
+            <ChannelSegmentationSettingsPage
+              touchpoints={touchpoints}
+              onRulesUpdated={(newRules) => setChannelRules(newRules)}
+              onShowToast={showToast}
             />
           )}
 
