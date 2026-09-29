@@ -210,3 +210,50 @@ export interface ConversionLagMetrics {
   totalConvertedUsers: number;
 }
 
+export interface DayOfWeekChannelData {
+  dayIndex: number; // 0 (Sun) to 6 (Sat)
+  dayName: string;
+  shortName: string;
+  totalInteractions: number;
+  totalConversions: number;
+  conversionRate: number; // percentage
+  totalRevenue: number;
+  channelCounts: Record<ChannelName, number>;
+  channelConversions: Record<ChannelName, number>;
+  topChannel: ChannelName;
+  bestUse: string;
+}
+
+export interface DayOfWeekSummary {
+  days: DayOfWeekChannelData[];
+  peakDayConversions: string;
+  peakDayDiscovery: string;
+  peakDayRevenue: string;
+  recommendedFlightSchedule: {
+    stage: 'Top-of-Funnel Discovery' | 'Middle-Funnel Consideration' | 'Bottom-Funnel Closing';
+    bestDays: string[];
+    recommendedChannels: ChannelName[];
+    rationale: string;
+  }[];
+}
+
+export interface FunnelPlacementStage {
+  stageName: 'Top-of-Funnel (Discovery)' | 'Middle-of-Funnel (Consideration)' | 'Bottom-of-Funnel (Conversion)';
+  budgetSharePct: number;
+  recommendedChannels: ChannelName[];
+  creativeFormat: string;
+  bestDaysToSend: string;
+  keyMotive: string;
+  rationale: string;
+}
+
+export interface CampaignPlacementStrategy {
+  campaignName: string;
+  targetAudience: string;
+  pricePoint: number;
+  motive: string;
+  stages: FunnelPlacementStage[];
+  executiveSummary: string;
+  adSchedulingTakeaway: string;
+}
+

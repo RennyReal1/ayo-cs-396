@@ -24,6 +24,8 @@ import {
   ConversionLagMetrics,
   ConversionLagBucket,
   ChannelLagSpeed,
+  DayOfWeekChannelData,
+  DayOfWeekSummary,
 } from '../types';
 
 export const CHANNELS: ChannelName[] = ['Search', 'YouTube', 'Display', 'Discover', 'Gmail', 'Direct'];
@@ -1229,6 +1231,129 @@ export function computeConversionLagMetrics(journeys: UserJourney[]): Conversion
     fastestChannel,
     longestChannel,
     totalConvertedUsers,
+  };
+}
+
+/**
+ * Compute day-of-week engagement, conversions, and ad flighting metrics
+ */
+export function computeDayOfWeekSummary(touchpoints: Touchpoint[]): DayOfWeekSummary {
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const shortNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  const days: DayOfWeekChannelData[] = dayNames.map((name, i) => {
+    const emptyCounts: Record<ChannelName, number> = {
+      Search: 0,
+      YouTube: 0,
+      Display: 0,
+      Discover: 0,
+      Gmail: 0,
+      Direct: 0,
+    };
+    const emptyConv: Record<ChannelName, number> = {
+      Search: 0,
+      YouTube: 0,
+      Display: 0,
+      Discover: 0,
+      Gmail: 0,
+      Direct: 0,
+    };
+
+    return {
+      dayIndex: i,
+      dayName: name,
+      shortName: shortNames[i],
+      totalInteractions: 0,
+      totalConversions: 0,
+      conversionRate: 0,
+      totalRevenue: 0,
+      channelCounts: emptyCounts,
+      channelConversions: emptyConv,
+      topChannel: 'Search',
+      bestUse: '',
+    };
+  });
+
+  touchpoints.forEach((tp) => {
+    const d = new Date(tp.timestamp);
+    if (!isNaN(d.getTime())) {
+      const dayIdx = d.getUTCDay();
+      const dayData = days[dayIdx];
+      dayData.totalInteractions += 1;
+      dayData.channelCounts[tp.channel] = (dayData.channelCounts[tp.channel] || 0) + 1;
+
+      if (tp.converted) {
+        dayData.totalConversions += 1;
+        dayData.totalRevenue += tp.conversion_value_usd || 0;
+        dayData.channelConversions[tp.channel] = (dayData.channelConversions[tp.channel] || 0) + 1;
+      }
+    }
+  });
+
+  // Calculate rates and top channels for each day
+  days.forEach((day) => {
+    day.conversionRate =
+      day.totalInteractions > 0
+        ? Number(((day.totalConversions / day.totalInteractions) * 100).toFixed(1))
+        : 0;
+
+    let maxChannel: ChannelName = 'Search';
+    let maxCnt = -1;
+    CHANNELS.forEach((ch) => {
+      const cnt = day.channelCounts[ch] || 0;
+      if (cnt > maxCnt) {
+        maxCnt = cnt;
+        maxChannel = ch;
+      }
+    });
+    day.topChannel = maxChannel;
+
+    // Qualitative best use
+    if (day.dayIndex === 0 || day.dayIndex === 6) {
+      day.bestUse = 'Weekend leisure discovery, social feeds, and mobile video streaming';
+    } else if (day.dayIndex === 1) {
+      day.bestUse = 'Monday morning re-engagement, email newsletters, and workweek planning';
+    } else if (day.dayIndex === 2 || day.dayIndex === 3) {
+      day.bestUse = 'Peak midweek intent, high-conversion search ads, and direct checkout';
+    } else if (day.dayIndex === 4) {
+      day.bestUse = 'Payday preparation, weekend event shopping, and retargeting cart reminders';
+    } else {
+      day.bestUse = 'Friday evening impulse discovery, entertainment, and weekend kickoffs';
+    }
+  });
+
+  // Peak days
+  const peakDayConversions = [...days].sort((a, b) => b.totalConversions - a.totalConversions)[0]?.dayName || 'Tuesday';
+  const peakDayDiscovery = [...days].sort((a, b) => (b.channelCounts.YouTube + b.channelCounts.Discover) - (a.channelCounts.YouTube + a.channelCounts.Discover))[0]?.dayName || 'Saturday';
+  const peakDayRevenue = [...days].sort((a, b) => b.totalRevenue - a.totalRevenue)[0]?.dayName || 'Wednesday';
+
+  const recommendedFlightSchedule = [
+    {
+      stage: 'Top-of-Funnel Discovery' as const,
+      bestDays: ['Friday', 'Saturday', 'Sunday'],
+      recommendedChannels: ['YouTube' as ChannelName, 'Discover' as ChannelName],
+      rationale: 'Leisure browsing hours and visual engagement peak over weekends. Ideal for video inspiration and outfit styling reels.',
+    },
+    {
+      stage: 'Middle-Funnel Consideration' as const,
+      bestDays: ['Monday', 'Tuesday'],
+      recommendedChannels: ['Display' as ChannelName, 'Gmail' as ChannelName],
+      rationale: 'Subscribers check inboxes at the start of the week. Display retargeting keeps the product top-of-mind during working hours.',
+    },
+    {
+      stage: 'Bottom-Funnel Closing' as const,
+      bestDays: ['Wednesday', 'Thursday'],
+      recommendedChannels: ['Search' as ChannelName, 'Direct' as ChannelName],
+      rationale: 'High conversion velocity before delivery deadlines. Users search exact keywords and finalize orders for weekend delivery.',
+    },
+  ];
+
+  return {
+    days,
+    peakDayConversions,
+    peakDayDiscovery,
+    peakDayRevenue,
+    recommendedFlightSchedule,
   };
 }
 
