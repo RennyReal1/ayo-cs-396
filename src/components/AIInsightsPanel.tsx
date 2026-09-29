@@ -11,6 +11,7 @@ import {
   Presentation,
   Download,
   Maximize2,
+  GitFork,
 } from 'lucide-react';
 import { AIInsight, RecommendedAction, DashboardMetrics } from '../types';
 import { exportInsightsToSlides, GeneratedSlidePackage, openPresentationInNewTab } from '../utils/slideExport';
@@ -24,6 +25,7 @@ interface AIInsightsPanelProps {
   recommendations?: RecommendedAction[];
   metrics?: DashboardMetrics;
   onShowToast?: (msg: string) => void;
+  onFilterCohort?: (filterQuery: string, label: string) => void;
 }
 
 export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
@@ -33,6 +35,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
   recommendations = [],
   metrics,
   onShowToast,
+  onFilterCohort,
 }) => {
   const [selectedInsight, setSelectedInsight] = useState<AIInsight | null>(null);
   const [slidePreviewInsight, setSlidePreviewInsight] = useState<AIInsight | null>(null);
@@ -181,15 +184,36 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({
               </p>
             </div>
 
-            <div className="mt-4 pt-2 border-t border-gray-200/60 flex items-center justify-between gap-1.5">
-              <button
-                type="button"
-                onClick={() => setSelectedInsight(item)}
-                className="text-xs font-semibold text-[#1a73e8] hover:text-[#174ea6] flex items-center gap-1 cursor-pointer transition-colors"
-              >
-                <span>Details</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+            <div className="mt-4 pt-2 border-t border-gray-200/60 flex items-center justify-between gap-1.5 flex-wrap">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedInsight(item)}
+                  className="text-xs font-semibold text-[#1a73e8] hover:text-[#174ea6] flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <span>Details</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+
+                {onFilterCohort && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      let q = 'Search';
+                      if (item.title.toLowerCase().includes('youtube')) q = 'YouTube';
+                      else if (item.title.toLowerCase().includes('display')) q = 'Display';
+                      else if (item.title.toLowerCase().includes('search')) q = 'Search';
+                      else if (item.title.toLowerCase().includes('gmail') || item.title.toLowerCase().includes('email')) q = 'Gmail';
+                      onFilterCohort(q, item.title);
+                    }}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+                    title="Filter Customer Journeys to this specific cohort"
+                  >
+                    <GitFork className="w-3 h-3 text-emerald-600" />
+                    <span>Filter Cohort</span>
+                  </button>
+                )}
+              </div>
 
               <div className="flex items-center gap-1">
                 {/* Expand to Slide View Button */}

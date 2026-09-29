@@ -39,8 +39,20 @@ export const CustomerJourneysPage: React.FC<CustomerJourneysPageProps> = ({ touc
   const [selectedChannel, setSelectedChannel] = useState<ChannelName | 'all'>('all');
   const [selectedLagBucket, setSelectedLagBucket] = useState<string | null>(null);
   const [selectedMotive, setSelectedMotive] = useState<MotiveType | 'all'>('all');
+  const [collapseConsecutive, setCollapseConsecutive] = useState(false);
+  const [expandedUserIds, setExpandedUserIds] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 15;
+
+  // Toggle user path expansion
+  const toggleExpandUser = (userId: string) => {
+    setExpandedUserIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  };
 
   // Extract journeys from touchpoints
   const journeys = useMemo(() => {
@@ -441,6 +453,21 @@ export const CustomerJourneysPage: React.FC<CustomerJourneysPageProps> = ({ touc
                   Did Not Convert ({journeys.length - totalConverted})
                 </button>
               </div>
+
+              {/* Collapse Consecutive Repeated Touches Toggle */}
+              <button
+                type="button"
+                onClick={() => setCollapseConsecutive(!collapseConsecutive)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                  collapseConsecutive
+                    ? 'bg-[#e8f0fe] border-[#1a73e8] text-[#1a73e8]'
+                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}
+                title="Group repeated consecutive touches (e.g. Search 3x instead of Search -> Search -> Search)"
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span>{collapseConsecutive ? 'Repeats Grouped (3x)' : 'Collapse Repeats'}</span>
+              </button>
             </div>
           </div>
 
@@ -486,24 +513,72 @@ export const CustomerJourneysPage: React.FC<CustomerJourneysPageProps> = ({ touc
                         </td>
 
                         <td className="py-3 px-4">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {j.path.map((ch, idx) => (
-                              <React.Fragment key={idx}>
-                                {idx > 0 && <span className="text-gray-300 text-[10px]">→</span>}
-                                <span
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border"
-                                  style={{
-                                    borderColor: `${CHANNEL_COLORS[ch]}30`,
-                                    backgroundColor: `${CHANNEL_COLORS[ch]}10`,
-                                    color: CHANNEL_COLORS[ch],
-                                  }}
-                                >
-                                  <ChannelIcon channel={ch} size={14} />
-                                  {ch}
-                                </span>
-                              </React.Fragment>
-                            ))}
-                          </div>
+                          {(() => {
+                            const rawItems: { channel: ChannelName; count: number }[] = [];
+                            if (collapseConsecutive) {
+                              for (const ch of j.path) {
+                                if (rawItems.length > 0 && rawItems[rawItems.length - 1].channel === ch) {
+                                  rawItems[rawItems.length - 1].count++;
+                                } else {
+                                  rawItems.push({ channel: ch, count: 1 });
+                                }
+                              }
+                            } else {
+                              for (const ch of j.path) {
+                                rawItems.push({ channel: ch, count: 1 });
+                              }
+                            }
+
+                            const isExpanded = expandedUserIds.has(j.user_id);
+                            const visibleItems = isExpanded ? rawItems : rawItems.slice(0, 5);
+                            const hiddenCount = rawItems.length - visibleItems.length;
+
+                            return (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {visibleItems.map((item, idx) => (
+                                  <React.Fragment key={idx}>
+                                    {idx > 0 && <span className="text-gray-300 text-[10px]">→</span>}
+                                    <span
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border"
+                                      style={{
+                                        borderColor: `${CHANNEL_COLORS[item.channel]}30`,
+                                        backgroundColor: `${CHANNEL_COLORS[item.channel]}10`,
+                                        color: CHANNEL_COLORS[item.channel],
+                                      }}
+                                    >
+                                      <ChannelIcon channel={item.channel} size={14} />
+                                      <span>{item.channel}</span>
+                                      {item.count > 1 && (
+                                        <span className="font-bold text-[10px] px-1 py-0.2 rounded bg-black/10">
+                                          {item.count}x
+                                        </span>
+                                      )}
+                                    </span>
+                                  </React.Fragment>
+                                ))}
+
+                                {hiddenCount > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleExpandUser(j.user_id)}
+                                    className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 cursor-pointer transition-colors"
+                                  >
+                                    +{hiddenCount} more
+                                  </button>
+                                )}
+
+                                {isExpanded && rawItems.length > 5 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleExpandUser(j.user_id)}
+                                    className="text-[10px] font-semibold text-gray-500 hover:text-gray-800 cursor-pointer underline ml-1"
+                                  >
+                                    Show less
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
 
                         <td className="py-3 px-4 text-center">

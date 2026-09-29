@@ -15,6 +15,8 @@ import {
   Loader2,
   RefreshCw,
   Sliders,
+  FileSpreadsheet,
+  Download,
 } from 'lucide-react';
 import {
   ChannelName,
@@ -129,17 +131,45 @@ export const CampaignPlacementAdvisor: React.FC<CampaignPlacementAdvisorProps> =
     const peakDay = dayOfWeekSummary.peakDayConversions || 'Tuesday';
     const peakDiscDay = dayOfWeekSummary.peakDayDiscovery || 'Saturday';
 
+    // Dynamically calculate budget ratios based on motive and price point
+    let topShare = 45;
+    let midShare = 35;
+    let bottomShare = 20;
+
+    if (motive === 'Impulse Flash Sale') {
+      topShare = 25;
+      midShare = 25;
+      bottomShare = 50;
+    } else if (motive === 'High-Ticket Deliberation' || pricePoint >= 150) {
+      topShare = 30;
+      midShare = 45;
+      bottomShare = 25;
+    } else if (motive === 'Birthday & Milestone Gift') {
+      topShare = 35;
+      midShare = 35;
+      bottomShare = 30;
+    } else if (motive === 'Festival & Event Prep') {
+      topShare = 50;
+      midShare = 30;
+      bottomShare = 20;
+    }
+
+    if (pricePoint < 35 && motive !== 'Impulse Flash Sale') {
+      topShare -= 5;
+      bottomShare += 5;
+    }
+
     return {
       campaignName: productName,
       targetAudience,
       pricePoint,
       motive,
-      executiveSummary: `According to your live dataset, ${discCh} drives ${topDiscovery?.firstTouchPct || 40}% of discovery, while ${closeCh} closes ${topCloser?.lastTouchPct || 35}% of sales. For ${productName} ($${pricePoint}), deploy visual discovery on ${peakDiscDay} and capture intent with ${closeCh} on ${peakDay}.`,
+      executiveSummary: `According to your live dataset, ${discCh} drives ${topDiscovery?.firstTouchPct || 40}% of discovery, while ${closeCh} closes ${topCloser?.lastTouchPct || 35}% of sales. For ${productName} ($${pricePoint}), budget is dynamically optimized (${topShare}% Top / ${midShare}% Mid / ${bottomShare}% Bottom) tailored to ${motive}.`,
       adSchedulingTakeaway: `Empirical peak conversions occur on ${peakDay}. Heavy-flight top-of-funnel ads on Friday–Sunday (${peakDiscDay} peak), followed by high-bid ${closeCh} and cart-abandonment retargeting on ${peakDay}.`,
       stages: [
         {
           stageName: 'Top-of-Funnel (Discovery)',
-          budgetSharePct: 45,
+          budgetSharePct: topShare,
           recommendedChannels: [discCh, 'Discover'],
           creativeFormat: `Short-form discovery & unboxing: "Why you need ${productName} for ${motive}"`,
           bestDaysToSend: `Friday – Sunday (${peakDiscDay} peak browsing)`,
@@ -148,7 +178,7 @@ export const CampaignPlacementAdvisor: React.FC<CampaignPlacementAdvisorProps> =
         },
         {
           stageName: 'Middle-of-Funnel (Consideration)',
-          budgetSharePct: 35,
+          budgetSharePct: midShare,
           recommendedChannels: [nurtCh, 'Gmail'],
           creativeFormat: `Feature comparisons & review spotlights addressing hesitation for ${productName}`,
           bestDaysToSend: 'Monday – Wednesday midday',
@@ -157,7 +187,7 @@ export const CampaignPlacementAdvisor: React.FC<CampaignPlacementAdvisorProps> =
         },
         {
           stageName: 'Bottom-of-Funnel (Conversion)',
-          budgetSharePct: 20,
+          budgetSharePct: bottomShare,
           recommendedChannels: [closeCh, 'Direct'],
           creativeFormat: `Urgency-driven checkout ads: "Buy ${productName} now - guaranteed fast shipping"`,
           bestDaysToSend: `${peakDay} (Highest empirical conversion rate)`,
@@ -234,6 +264,43 @@ export const CampaignPlacementAdvisor: React.FC<CampaignPlacementAdvisorProps> =
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  // Handler for Exporting Media Plan CSV
+  const handleExportMediaPlanCsv = () => {
+    const headers = [
+      'Stage Name',
+      'Budget Share %',
+      'Budget Allocation USD',
+      'Recommended Channels',
+      'Creative Format',
+      'Best Days to Send',
+      'Strategic Rationale',
+    ];
+    const rows = activeStrategy.stages.map((st) => [
+      `"${st.stageName}"`,
+      st.budgetSharePct,
+      Math.round((st.budgetSharePct / 100) * campaignBudget),
+      `"${st.recommendedChannels.join(', ')}"`,
+      `"${st.creativeFormat.replace(/"/g, '""')}"`,
+      `"${st.bestDaysToSend}"`,
+      `"${st.rationale.replace(/"/g, '""')}"`,
+    ]);
+
+    const csvContent =
+      'data:text/csv;charset=utf-8,' +
+      [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute(
+      'download',
+      `${productName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_media_plan.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    onShowToast?.(`Exported Media Plan CSV for "${productName}"`);
   };
 
   // Projected conversions based on empirical conversion rate
@@ -466,14 +533,25 @@ export const CampaignPlacementAdvisor: React.FC<CampaignPlacementAdvisorProps> =
 
       {/* Full-Funnel Placement Blueprint Cards */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
             <Layers className="w-4 h-4 text-[#1a73e8]" />
             Full-Funnel Ad Placement Strategy (Top, Middle, Bottom)
           </h3>
-          <span className="text-xs font-semibold text-gray-400">
-            Total Budget: ${campaignBudget.toLocaleString()}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-gray-400">
+              Total Budget: ${campaignBudget.toLocaleString()}
+            </span>
+            <button
+              type="button"
+              onClick={handleExportMediaPlanCsv}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+              title="Download media plan spreadsheet (CSV) for Google Ads & Meta"
+            >
+              <Download className="w-3.5 h-3.5 text-gray-500" />
+              <span>Export Media Plan CSV</span>
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

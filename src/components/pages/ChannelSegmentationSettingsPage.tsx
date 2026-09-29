@@ -54,6 +54,8 @@ export const ChannelSegmentationSettingsPage: React.FC<ChannelSegmentationSettin
   const [formMatchType, setFormMatchType] = useState<'contains' | 'regex' | 'exact' | 'starts_with'>('contains');
   const [formPatternInput, setFormPatternInput] = useState('');
   const [formPatterns, setFormPatterns] = useState<string[]>([]);
+  const [regexError, setRegexError] = useState<string | null>(null);
+  const [deleteConfirmRule, setDeleteConfirmRule] = useState<ChannelRule | null>(null);
 
   // Load rules on mount
   useEffect(() => {
@@ -93,8 +95,19 @@ export const ChannelSegmentationSettingsPage: React.FC<ChannelSegmentationSettin
 
   // Add pattern chip to form
   const handleAddPattern = () => {
+    setRegexError(null);
     if (!formPatternInput.trim()) return;
-    const clean = formPatternInput.trim().toLowerCase();
+    const clean = formPatternInput.trim();
+
+    if (formMatchType === 'regex') {
+      try {
+        new RegExp(clean, 'i');
+      } catch (err: any) {
+        setRegexError(`Invalid regular expression: ${err.message}`);
+        return;
+      }
+    }
+
     if (!formPatterns.includes(clean)) {
       setFormPatterns([...formPatterns, clean]);
     }
@@ -110,6 +123,18 @@ export const ChannelSegmentationSettingsPage: React.FC<ChannelSegmentationSettin
   const handleSaveRule = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim()) return;
+
+    // Verify all regex patterns if regex mode
+    if (formMatchType === 'regex') {
+      for (const pat of formPatterns) {
+        try {
+          new RegExp(pat, 'i');
+        } catch (err: any) {
+          setRegexError(`Pattern "${pat}" is an invalid regular expression: ${err.message}`);
+          return;
+        }
+      }
+    }
 
     let updatedList: ChannelRule[];
     if (editingRuleId) {
@@ -378,7 +403,7 @@ export const ChannelSegmentationSettingsPage: React.FC<ChannelSegmentationSettin
                   {!rule.isCore && (
                     <button
                       type="button"
-                      onClick={() => handleDeleteRule(rule.id, rule.channelName)}
+                      onClick={() => setDeleteConfirmRule(rule)}
                       className="p-2 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                       title="Delete Custom Rule"
                     >
@@ -506,6 +531,13 @@ export const ChannelSegmentationSettingsPage: React.FC<ChannelSegmentationSettin
                   </button>
                 </div>
 
+                {regexError && (
+                  <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                    <span>{regexError}</span>
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-1.5 pt-2 max-h-32 overflow-y-auto">
                   {formPatterns.length === 0 ? (
                     <span className="text-xs text-gray-400 italic">No patterns added yet.</span>
@@ -546,6 +578,39 @@ export const ChannelSegmentationSettingsPage: React.FC<ChannelSegmentationSettin
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Delete Confirmation Safeguard Modal */}
+      {deleteConfirmRule && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-sm p-5 space-y-4">
+            <div className="flex items-center gap-3 text-red-600">
+              <AlertCircle className="w-5 h-5 shrink-0" />
+              <h4 className="text-sm font-bold text-gray-900">Delete Channel Rule?</h4>
+            </div>
+            <p className="text-xs text-gray-600 leading-relaxed">
+              Are you sure you want to remove <strong>{deleteConfirmRule.channelName}</strong>? Incoming campaign traffic matching this rule's patterns will be safely routed to <strong>Direct</strong>.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmRule(null)}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold text-gray-600 hover:bg-gray-100 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handleDeleteRule(deleteConfirmRule.id, deleteConfirmRule.channelName);
+                  setDeleteConfirmRule(null);
+                }}
+                className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold cursor-pointer shadow-xs"
+              >
+                Confirm Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

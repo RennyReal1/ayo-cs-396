@@ -315,13 +315,23 @@ export default function App() {
       channel: segmentTouchpointChannel(t.channel, channelRules),
     }));
 
-    // Filter by date range if applicable
-    if (selectedDateRange.includes('Last 30 Days')) {
-      const cutoff = new Date('2024-10-01T00:00:00Z').getTime();
-      list = list.filter((t) => new Date(t.timestamp).getTime() >= cutoff);
-    } else if (selectedDateRange.includes('Last 60 Days')) {
-      const cutoff = new Date('2024-09-01T00:00:00Z').getTime();
-      list = list.filter((t) => new Date(t.timestamp).getTime() >= cutoff);
+    // Rolling dynamic date windows relative to latest touchpoint
+    if (selectedDateRange.includes('30') || selectedDateRange.includes('60') || selectedDateRange.includes('90')) {
+      const validTimestamps = touchpoints
+        .map((t) => new Date(t.timestamp).getTime())
+        .filter((time) => !isNaN(time));
+      const latestTime = validTimestamps.length > 0 ? Math.max(...validTimestamps) : Date.now();
+
+      if (selectedDateRange.includes('30')) {
+        const cutoff = latestTime - 30 * 24 * 60 * 60 * 1000;
+        list = list.filter((t) => new Date(t.timestamp).getTime() >= cutoff);
+      } else if (selectedDateRange.includes('60')) {
+        const cutoff = latestTime - 60 * 24 * 60 * 60 * 1000;
+        list = list.filter((t) => new Date(t.timestamp).getTime() >= cutoff);
+      } else if (selectedDateRange.includes('90')) {
+        const cutoff = latestTime - 90 * 24 * 60 * 60 * 1000;
+        list = list.filter((t) => new Date(t.timestamp).getTime() >= cutoff);
+      }
     }
 
     // Filter by search query (channel or user)
@@ -683,6 +693,11 @@ export default function App() {
                     recommendations={recommendations}
                     metrics={metrics}
                     onShowToast={showToast}
+                    onFilterCohort={(query, label) => {
+                      setSearchQuery(query);
+                      setActiveTab('journeys');
+                      showToast(`Filtered Customer Journeys to ${query} cohort`);
+                    }}
                   />
                 </div>
                 <div className="lg:col-span-5">
